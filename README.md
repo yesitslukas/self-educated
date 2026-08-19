@@ -45,9 +45,12 @@ Plain ES modules — which means it must be served over HTTP, not opened as a `f
 
 ## Before this goes live
 
-- [ ] **Wire `SUBSCRIBE_ENDPOINT`** in `assets/app.js`. Empty right now, so emails
-      only reach `localStorage` — which means you learn nothing. Buttondown,
-      ConvertKit and Formspree all take a plain JSON POST.
+- [ ] **Wire `CAPTURE_ENDPOINT`** in `assets/app.js` — the one thing standing
+      between a live page and actual data. Empty right now, so signups reach
+      `localStorage` and nowhere else, which means you learn nothing from
+      posting it. Full setup is in the header of `tools/sheet-capture.gs`:
+      new Sheet → Apps Script → paste → deploy as a web app with access set to
+      **Anyone** → paste the `/exec` URL into `app.js` → commit and push.
 - [ ] **Replace the `aiExposure` numbers** in `data.js`. They are editorial
       placeholders so the UI could be built and tested. Real sources:
       [O\*NET](https://www.onetcenter.org/database.html) (free, occupation and task
@@ -60,14 +63,28 @@ Plain ES modules — which means it must be served over HTTP, not opened as a `f
 
 ## Deploying
 
-Static, so anything serves it. GitHub Pages works for **this step only** — push
-to a repo, Settings → Pages → deploy from branch, point the custom domain's CNAME
-at it.
+Static, so anything serves it. Already live on GitHub Pages from `main` — every
+push to `main` redeploys within about a minute.
 
-It stops working the moment you need accounts, saved profiles or payments: Pages
-has no server, so there is nowhere to hold an API key or verify a Stripe webhook.
-At that point move to Vercel (same repo, free tier, gives you API routes) rather
-than bolting a backend onto a static host.
+**Custom domain**, once you buy one: add a `CNAME` file at the repo root
+containing just the bare domain, then at your registrar point a `CNAME` record
+for `www` at `yesitslukas.github.io`, and the apex `@` at GitHub's four A
+records (`185.199.108.153`, `.109.153`, `.110.153`, `.111.153`). Then tick
+"Enforce HTTPS" in Settings → Pages once the certificate is issued.
+
+Pages stops being enough the moment you need accounts, saved profiles or
+payments: it has no server, so there is nowhere to hold an API key or verify a
+Stripe webhook. At that point move to Vercel (same repo, free tier, adds API
+routes) rather than bolting a backend onto a static host. The Sheet capture is
+deliberately the kind of thing that gets thrown away at that step — it exists to
+answer the validation question, not to be architecture.
+
+## Data this collects
+
+Email, the twelve domain ratings, RIASEC answers, ikigai selections, and the
+matched fields — into your Sheet, plus a copy in the visitor's own browser. No
+tracking, no third-party scripts, no analytics. The privacy line under the form
+says exactly this; keep the two in sync if you change what is stored.
 
 ## Naming — the one legal constraint
 

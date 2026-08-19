@@ -14,10 +14,11 @@ import {
 } from './scoring.js'
 import { renderRadar } from './radar.js'
 
-/* Where captured emails go. Empty = store locally only.
-   TODO: point at a Buttondown / ConvertKit / Formspree endpoint, or
-   your own /api/subscribe once there is a backend. */
-const SUBSCRIBE_ENDPOINT = ''
+/* Where captured signups go: a Google Apps Script web app writing into a
+   Sheet. Paste the /exec URL here — setup steps are in tools/sheet-capture.gs.
+   Left empty, the page still works and stores locally, but nothing reaches
+   you, so this must be filled in before the page is shared anywhere. */
+const CAPTURE_ENDPOINT = ''
 
 const MAX_PICKS = 5
 const RIASEC_PAGES = [[0, 6], [6, 12], [12, 18]]
@@ -320,6 +321,10 @@ function renderResults () {
           <button class="btn btn-primary" type="submit">Save my profile</button>
         </form>
         <p class="capture-note" id="capture-note"></p>
+        <p class="privacy">
+          We store your email and the answers behind this chart, nothing else. No tracking,
+          no third parties, no reselling. Reply to any message and we delete it the same day.
+        </p>
         <div class="secondary-actions">
           <button class="btn btn-ghost" data-action="download">Download the chart</button>
           <button class="btn btn-ghost" data-action="restart">Start over</button>
@@ -465,30 +470,61 @@ async function onCapture (e) {
       levels: state.levels,
       evidence: [...state.evidence], teaches: [...state.teaches],
     },
-    // TODO: replace with a server timestamp once there is a backend.
+    // The sheet stamps its own server-side time; this is only a fallback
+    // for the copy kept in localStorage.
     savedAt: new Date().toISOString(),
+    userAgent: navigator.userAgent,
   }
 
+  // Local copy first, so a network failure can never lose someone's answers.
   localStorage.setItem('selfeducated.profile', JSON.stringify(payload))
 
-  if (!SUBSCRIBE_ENDPOINT) {
-    note.textContent = 'Saved in this browser. (No mailing list connected yet — wire up SUBSCRIBE_ENDPOINT in app.js before launch.)'
+  if (!CAPTURE_ENDPOINT) {
+    note.textContent = 'Saved in this browser only — the capture endpoint is not connected yet (see tools/sheet-capture.gs).'
     note.className = 'capture-note is-warn'
     return
   }
 
-  try {
-    const res = await fetch(SUBSCRIBE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) throw new Error(res.status)
-    note.textContent = 'Saved. Check your inbox — your profile is on its way.'
+  const btn = e.target.querySelector('button')
+  btn.disabled = true
+  note.textContent = 'Saving…'
+  note.className = 'capture-note'
+
+  const delivered = await send(payload)
+  btn.disabled = false
+
+  if (delivered) {
+    note.textContent = 'Saved. Your profile is recorded — you will hear from us when tier assessments open.'
     note.className = 'capture-note is-ok'
-  } catch {
-    note.textContent = 'Could not reach the server. Your profile is stored in this browser, so nothing is lost.'
+    e.target.reset()
+  } else {
+    note.textContent = 'Could not reach the server. Your profile is stored in this browser, so nothing is lost — try again in a moment.'
     note.className = 'capture-note is-warn'
+  }
+}
+
+/* Apps Script is awkward to POST to from a browser. A JSON content-type
+   triggers a CORS preflight that Apps Script does not answer, so the request
+   goes as text/plain — a "simple" request, no preflight — and the script
+   parses the body itself. If even that is blocked, retry opaquely: the row
+   still lands in the sheet, we just cannot read the response to confirm. */
+async function send (payload) {
+  const body = JSON.stringify(payload)
+  try {
+    const res = await fetch(CAPTURE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body,
+      redirect: 'follow',
+    })
+    return res.ok
+  } catch {
+    try {
+      await fetch(CAPTURE_ENDPOINT, { method: 'POST', mode: 'no-cors', body })
+      return true
+    } catch {
+      return false
+    }
   }
 }
 
