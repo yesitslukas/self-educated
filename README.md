@@ -18,13 +18,24 @@ plain ES modules, which means it must be served over HTTP rather than opened as 
 `file://`. The dev server sends `no-store` so module edits show up on reload.
 
 ```bash
-node tests/run.mjs
+node tests/run.mjs && node tests/views.mjs
 ```
 
-41 invariant tests over the scoring engine. They assert properties, not pinned
-numbers, so they survive a re-weighting of the model — which is the point. A block
-marked `REGRESSIONS` pins the specific defects found in the v1 audit; each of those
-fails against the code as it was before.
+Two suites, 64 tests, no dependencies.
+
+`run.mjs` — 41 invariant tests over the scoring engine. They assert properties, not
+pinned numbers, so they survive a re-weighting of the model, which is the point. A
+block marked `REGRESSIONS` pins the specific defects found in the v1 audit; each of
+those fails against the code as it was before.
+
+`views.mjs` — 23 render tests. `views.js` is pure `(state) → HTML`, so every screen
+the product can show is rendered in Node and checked for `undefined`, `NaN`,
+unresolved templates, unbalanced tags, and the invariants that must survive any
+copy edit: the disclaimer is on every results variant, no unevidenced claim shows a
+Torch or Beacon badge, no protected title ever reaches the page, and no email is
+requested while there is nowhere to send it. It covers ten profile shapes a browser
+walkthrough would rarely reach by accident — the empty profile, the flat responder,
+the maximal unevidenced profile, contradictory answers.
 
 ## Files
 
