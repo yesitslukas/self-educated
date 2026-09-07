@@ -89,8 +89,15 @@ const stateOf = (over = {}) => ({
   results: null,
 })
 
-/* The checks every rendered screen has to pass. */
+/* The checks every rendered screen has to pass.
+
+   The absolute-storage patterns are here because the page once claimed
+   "Nothing here is stored anywhere" while persist() wrote every answer to
+   sessionStorage on every render. A claim about storage is the one kind of
+   sentence this product cannot get wrong, so the shape of the false version
+   is banned rather than left to review. */
 const POISON = [
+  ['absolute storage claim', /nothing (here )?is stored anywhere|(this )?page keeps nothing|we store nothing/i],
   ['undefined', /\bundefined\b/],
   ['NaN', /\bNaN\b/],
   ['[object Object]', /\[object Object\]/],
@@ -219,7 +226,8 @@ test('the contradiction between sections is surfaced on the page', () => {
   const r = buildResults(SCENARIOS['contradictory answers'])
   assert(r.flags.length >= 1, 'the contradiction must be detected')
   const html = views.renderResults(r)
-  assert(html.includes('Two of your answers disagree'), 'the contradiction must be shown, not absorbed')
+  assert(html.includes('does not line up') || html.includes('do not line up'),
+    'the contradiction must be shown, not absorbed')
   assert(html.includes('Teaching &amp; People') || html.includes('Teaching & People'), 'the flag must name the domain')
 })
 
@@ -237,7 +245,7 @@ test('every results variant carries the disclaimer and the honesty line', () => 
     if (r.thin) continue
     const html = views.renderResults(r)
     assert(html.includes('not academic qualifications'), `${name} is missing the qualifications disclaimer`)
-    assert(html.includes('Nobody has checked it'), `${name} is missing the unverified statement`)
+    assert(html.includes('self-reported'), `${name} is missing the unverified statement`)
   }
 })
 
@@ -246,7 +254,7 @@ test('with no capture endpoint the page does not ask for an email', () => {
   assert(!html.includes('id="capture"'), 'no form may be shown while there is nowhere to send it')
   assert(!html.includes('type="email"'), 'no address may be collected while there is nowhere to store it')
   // Match on a phrase that cannot straddle a line break in the template.
-  assert(html.includes('Nothing here is stored anywhere'), 'the page must say plainly that nothing is stored')
+  assert(html.includes('go nowhere else'), 'the page must say where the answers actually go')
 })
 
 test('the chart is present in every results variant and carries its provenance', () => {

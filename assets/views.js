@@ -29,6 +29,14 @@ const meter = (v, label) => {
   }</span>`
 }
 
+/* "A and B" for two, "A, B and C" beyond — the previous join produced
+   "A and B, C", and field names must stay comma-free for it to read at all. */
+const prose = names => names.length === 1
+  ? `<b>${names[0]}</b>`
+  : `<b>${names.slice(0, -1).join('</b>, <b>')}</b> and <b>${names[names.length - 1]}</b>`
+
+const COUNT_WORD = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five' }
+
 const AI_WORDS = {
   high: 'Software already drafts much of the routine output here',
   mid: 'Software does parts of it — the judgement and the relationship work, not yet',
@@ -43,17 +51,17 @@ export function renderIntro () {
   return `
     <section class="screen intro">
       <p class="eyebrow">Free · about 7 minutes · no account</p>
-      <h1>You did not go to university.<br><span class="glow">That is not the same as uneducated.</span></h1>
+      <h1>Nobody wrote down what you learned.<br><span class="glow">This does.</span></h1>
       <p class="lede">
         This maps what you actually know across twelve domains, finds the fields your
         knowledge and interests already point at, and shows the distance between where
         you are and where those fields start hiring.
       </p>
-      <p class="claim">A degree proves you attended. This is built to show what you can do.</p>
+      <p class="claim">A degree records where you studied. This records what you have built — and what is still missing.</p>
       <ul class="promise">
-        <li><b>Behavioural, not aspirational.</b> Every level asks what you have done, never how good you feel.</li>
-        <li><b>Claims without proof get capped.</b> Say you cannot point at anything and the level below is what counts.</li>
-        <li><b>Every number carries its margin.</b> Where this test cannot separate two answers, it says so instead of picking one.</li>
+        <li><b>It asks what you made, not how you feel.</b> Every question is about work that exists — something you built, shipped, or were paid for.</li>
+        <li><b>Unproven claims do not count.</b> If you cannot point at something a stranger could look at, the level below is the one that stands.</li>
+        <li><b>It tells you when it does not know.</b> Two fields too close to call are reported as a tie, not dressed up as a winner.</li>
       </ul>
 
       <details class="method">
@@ -126,7 +134,7 @@ export function renderMoney (state) {
     <section class="screen">
       <h2 tabindex="-1">What does money need to do for you right now?</h2>
       <p class="sub">A field that takes three years is the wrong answer for someone with four months
-      of runway, however well it fits. This is reported as its own line on every result rather than
+      of savings, however well it fits. This is reported as its own line on every result rather than
       folded into the score, so you can see the trade instead of having it made for you.</p>
       <div class="stack" role="radiogroup" aria-label="What money needs to do">
         ${MONEY_MODES.map(m => `
@@ -192,9 +200,9 @@ export function renderEvidence (state) {
     return `
       <section class="screen">
         <h2 tabindex="-1">Nothing to verify yet</h2>
-        <p class="sub">You have not claimed a level that needs evidence. That is a fine place to start
-        from — it means every domain opens at Spark, and the first thing to do is make one small
-        thing a stranger could look at.</p>
+        <p class="sub">You have not claimed a level that needs proof, so nothing here gets capped.
+        The first move is to make one small thing a stranger could look at: practised, plus something
+        to point at, is Kindling.</p>
       </section>`
   }
   return `
@@ -237,14 +245,14 @@ function fieldCard (f, rank, tied) {
       </header>
       <p class="field-blurb">${f.blurb}</p>
       ${f.runwayRisk && rank === 0 ? `
-        <p class="risk">Typically takes longer than the runway you gave. Realistic only if something
-        else pays the bills for the first ${f.months[0]} months at least.</p>` : ''}
+        <p class="risk">Typically takes longer than the time you said you have. Realistic only if
+        something else pays the bills for the first ${f.months[0]} months at least.</p>` : ''}
       <ul class="fit-parts">
         <li><span>Knowledge you already have</span>${meter(f.parts.knowledge, 'Knowledge you already have')}</li>
         <li><span>Interest match</span>${f.parts.interest === null
             ? '<span class="na">not usable — see below</span>'
             : meter(f.parts.interest, 'Interest match')}</li>
-        <li><span>Fits your runway</span>${meter(f.parts.feasibility, 'Fits your runway')}</li>
+        <li><span>Fits your timeline</span>${meter(f.parts.feasibility, 'Fits your timeline')}</li>
       </ul>
       <dl class="meta">
         <div><dt>Typical ramp</dt><dd>${f.months[0]}–${f.months[1]} months of focused work before people report first paid work</dd></div>
@@ -319,8 +327,9 @@ export function renderResults (r) {
         </div>
         <div class="headline-txt">
           <p class="headline-lead">${tiedNames.length
-            ? `Two fields come out level: <b>${top.name}</b> and <b>${tiedNames[0]}</b>. This test cannot
-               separate them — the difference is smaller than its own margin of error.`
+            ? `${COUNT_WORD[tiedNames.length + 1] ?? tiedNames.length + 1} fields come out level:
+               ${prose([top.name, ...tiedNames])}. The gaps between them are smaller than this test's
+               own margin of error, so it does not rank them.`
             : `Your profile is deepest in <b>${placed[0].label}</b>, and points most clearly at
                <b>${top.name}</b>.`}</p>
           <p class="flame-def">The number is your <b>depth score</b>: your deepest domains, weighted so
@@ -338,22 +347,30 @@ export function renderResults (r) {
 
       ${r.flags.length ? `
       <div class="block flags">
-        <h3>Two of your answers disagree</h3>
+        <h3>${r.flags.length === 1 ? 'One pair of answers does not line up' : 'Some of your answers do not line up'}</h3>
         ${r.flags.map(f => `
-          <p class="read">You said people come to you for <b>${esc(f.claimed.toLowerCase())}</b>, but rated
-          <b>${f.label}</b> at "${esc(LEVEL_SCALE[f.rated].label.toLowerCase())}". One of those two answers
-          is wrong, and which one it is changes this whole profile.</p>`).join('')}
-        <p class="sub">Nothing has been adjusted for this. It is pointed out because it is the most
-        interesting thing in your answers, not because the score compensated for it.</p>
+          <p class="read">You chose <b>${esc(f.claimed.toLowerCase())}</b> as something people come to you
+          for, but rated <b>${f.label}</b> at "${esc(LEVEL_SCALE[f.rated].label.toLowerCase())}". Both can be
+          true — the skill may sit in a domain this list does not name. If it does not, the rating is the
+          one worth changing, because the rest of this page is built on those twelve numbers.</p>`).join('')}
+        <p class="sub">Nothing was adjusted for this. It is shown rather than averaged away, so you can
+        decide which of the two answers to trust.</p>
       </div>` : ''}
+
+      <div class="block">
+        <h3>What you enjoy against what you are known for</h3>
+        <p class="read">${r.ikigai.verdict}</p>
+        ${r.ikigai.overlap.length ? `
+          <p class="sub">Both at once: ${r.ikigai.overlap.map(o => esc(o.toLowerCase())).join(' · ')}.</p>` : ''}
+      </div>
 
       <div class="block">
         <h3>Fields that fit you</h3>
         <p class="sub">Ranked, not scored out of a hundred. The three meters under each field are what
-        the ranking is actually made of${tiedNames.length ? ', and the top two are inside the margin of error — treat them as one answer with two names' : ''}.</p>
+        the ranking is actually made of${tiedNames.length ? ', and the leaders sit inside the margin of error — treat them as one answer with more than one name' : ''}.</p>
         ${r.fields.slice(0, 4).every(f => f.runwayRisk) ? `
-          <p class="warn-note">Every field that fits you takes longer than the runway you gave. That is
-          worth knowing on its own: the honest options are a stopgap that pays while you train, or
+          <p class="warn-note">Every field that fits you takes longer than the time you said you have.
+          That is worth knowing on its own: the options are a stopgap that pays while you train, or
           accepting a slower start. Sales and writing are the two fields here that most often pay
           inside a few months, whether or not they came out on top.</p>` : ''}
         <div class="fields">
@@ -375,10 +392,10 @@ export function renderResults (r) {
               </span>
             </div>`).join('')}
         </div>
-        <p class="sub">Spark → Kindling → Flame → Torch → Beacon. Everything above Kindling required you
-        to say something exists that a stranger could check. <b>Nobody has checked it.</b> This profile
-        is self-attested and says so on its face — which puts it ahead of a personality quiz, and not
-        yet level with a transcript.</p>
+        <p class="sub">Spark → Kindling → Flame → Torch → Beacon. Above Spark, every tier is capped by
+        whether you said something exists that a stranger could check — so these badges describe work you
+        can point at, not confidence you feel. They are self-reported. The next version will let you name
+        that evidence, so a reader can check it instead of taking your word for it.</p>
         <p class="disclaimer">These five tiers describe knowledge. They are not academic qualifications,
         they are not awarded by an accredited institution, and they do not entitle anyone to a protected
         title. Where a tier names a stretch of study, it describes what that study is designed to
@@ -435,9 +452,9 @@ function renderFooterBlock (r) {
     <div class="block capture">
       ${r.captureEnabled ? `
         <h3>Where should this go?</h3>
-        <p class="sub">This page keeps nothing — close the tab and the profile is gone. Leave an address
-        and it is stored so you can come back to it, and you get written to once: when assessments that
-        someone other than you has checked are open.</p>
+        <p class="sub">Your answers stay inside this browser tab until you send them — close the tab and
+        the profile is gone. Leave an address and it is stored, so you can come back to it, and you get
+        written to once: when assessments that someone other than you has checked are open.</p>
         <form id="capture" class="capture-form">
           <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
           <button class="btn btn-primary" type="submit">Save my profile</button>
@@ -447,9 +464,10 @@ function renderFooterBlock (r) {
         nothing shared or sold, no tracking scripts, no analytics, no cookies.</p>
       ` : `
         <h3>Take this with you</h3>
-        <p class="sub">Nothing here is stored anywhere — there is no account, no database and no mailing
-        list behind this page. Close the tab and the profile is gone. Download the chart if you want to
-        keep it; when assessments that someone other than you has checked are open, this page will say so.</p>
+        <p class="sub">Your answers stay inside this browser tab and go nowhere else — no account, no
+        database, no mailing list behind this page. Close the tab and the profile is gone. Download the
+        chart if you want to keep it; when assessments that someone other than you has checked are open,
+        this page will say so.</p>
       `}
       <div class="secondary-actions">
         <button class="btn btn-ghost" data-action="download">Download the chart</button>

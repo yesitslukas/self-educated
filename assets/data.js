@@ -62,7 +62,7 @@ export const TIERS = [
     blurb: 'You are curious. You have read and watched, not yet built.' },
   { key: 'kindling', name: 'Kindling', kind: 'Working knowledge',      equiv: 'The grounding a first year of full-time study is meant to produce.',
     blurb: 'You have practised. Small things work when you make them.' },
-  { key: 'flame',    name: 'Flame',    kind: 'Professional knowledge', equiv: 'The working knowledge three to four years of full-time study is meant to produce.',
+  { key: 'flame',    name: 'Flame',    kind: 'Professional knowledge', equiv: 'The professional grounding three to four years of full-time study is meant to produce.',
     blurb: 'You have shipped real work that survived contact with reality.' },
   { key: 'torch',    name: 'Torch',    kind: 'Specialist knowledge',   equiv: 'The depth a further specialist year after that is meant to produce.',
     blurb: 'Others rely on your judgement here. You solve the non-obvious cases.' },
@@ -108,10 +108,10 @@ export const CAUSES = [
    than folded into fit, because "does this suit me" and "can I survive
    the wait" are different questions and averaging them destroys both. */
 export const MONEY_MODES = [
-  { key: 'urgent',    label: 'I need income within a few months. Speed beats ceiling.',  horizon: 6 },
-  { key: 'stable',    label: 'I want a solid, stable job I can grow inside.',             horizon: 18 },
-  { key: 'ceiling',   label: 'I will trade years now for a much higher ceiling later.',   horizon: 36 },
-  { key: 'freedom',   label: 'Location and time freedom matter more than the number.',    horizon: 18 },
+  { key: 'urgent',    label: 'I need income within a few months. Speed matters more than how far it goes.', horizon: 6 },
+  { key: 'stable',    label: 'I want a solid, steady job I can grow inside.',              horizon: 18 },
+  { key: 'ceiling',   label: 'I will trade years now to reach much further later.',        horizon: 36 },
+  { key: 'freedom',   label: 'Working where and when I choose matters more than the money.', horizon: 18 },
 ]
 
 /* RIASEC interest inventory (Holland's six types) — the same taxonomy
@@ -239,7 +239,7 @@ export const FIELDS = [
     causes: ['culture', 'access', 'truth'],
   },
   {
-    key: 'content', name: 'Content, Writing & Comms',
+    key: 'content', name: 'Writing & Communications',
     blurb: 'Making complicated things land. The fastest field to show competence in publicly — and the one software is pressing hardest, so depth matters.',
     riasec: { R: 0, I: 2, A: 3, S: 2, E: 1, C: 1 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 2.5, systems: 0, finance: 0, business: 1, marketing: 1.5, design: 2.5 },
@@ -266,7 +266,7 @@ export const FIELDS = [
     causes: ['waste', 'inequality'],
   },
   {
-    key: 'itsupport', name: 'IT Support & Systems Administration',
+    key: 'itsupport', name: 'IT Support & Administration',
     blurb: 'Keeping the machines and accounts of an organisation working. The classic no-degree entry into technology, and it opens onto everything else.',
     riasec: { R: 2, I: 2, A: 0, S: 2, E: 0, C: 3 },
     entryDemand: { software: 1.5, data: 1, science: 0, making: 0, craft: 0, health: 0, people: 1.5, systems: 3, finance: 0, business: 0, marketing: 0, design: 0 },
@@ -320,7 +320,7 @@ export const FIELDS = [
     causes: ['health', 'inequality', 'access'],
   },
   {
-    key: 'teaching', name: 'Teaching, Training & Coaching',
+    key: 'teaching', name: 'Teaching & Training',
     blurb: 'Public schooling needs certification; corporate training, online education and coaching do not. Your own learning story is the credential.',
     riasec: { R: 0, I: 1, A: 2, S: 3, E: 2, C: 1 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 3, systems: 0, finance: 0, business: 1, marketing: 1, design: 1.5 },
@@ -347,7 +347,7 @@ export const FIELDS = [
     causes: ['climate', 'health', 'tech'],
   },
   {
-    key: 'media', name: 'Video, Audio & Media Production',
+    key: 'media', name: 'Media Production',
     blurb: 'Craft you can prove in ten seconds of showreel. Tooling is collapsing in price; taste and reliability are what still sell.',
     riasec: { R: 2, I: 1, A: 3, S: 1, E: 2, C: 1 },
     entryDemand: { software: 0, data: 0, science: 0, making: 1.5, craft: 0, health: 0, people: 0, systems: 0, finance: 0, business: 1, marketing: 1.5, design: 3 },

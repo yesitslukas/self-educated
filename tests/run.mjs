@@ -87,6 +87,13 @@ test('every field declares all six Holland types explicitly', () => {
   }
 })
 
+test('no field name contains a comma, so tied fields can be listed in prose', () => {
+  for (const f of FIELDS) {
+    assert(!f.name.includes(','),
+      `"${f.name}" contains a comma — a list of tied fields becomes unreadable ("A, B & C and D, E")`)
+  }
+})
+
 test('field and domain keys are unique', () => {
   const fk = FIELDS.map(f => f.key)
   eq(new Set(fk).size, fk.length, 'duplicate field key')

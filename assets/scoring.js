@@ -488,13 +488,16 @@ export function ikigaiRead (ikigai) {
   const overlap = [...loves].filter(k => goodAt.has(k))
   const labelOf = k => ACTIVITIES.find(a => a.key === k)?.label ?? k
 
+  // No frequency claims. There is no reference population, so "that is rare"
+  // or "this usually means" would be exactly the kind of assertion the method
+  // page says cannot honestly be made — and it would be flattery besides.
   let verdict
   if (overlap.length >= 3) {
-    verdict = 'What you enjoy and what people rely on you for are largely the same activities. That is rarer than it sounds, and it argues for going deeper where you already are rather than starting somewhere new.'
+    verdict = 'What you enjoy and what people come to you for are the same three activities or more. That argues for depth rather than a change of direction — and the useful question is which of them you have never been paid for.'
   } else if (overlap.length >= 1) {
-    verdict = 'Part of what you enjoy is also what people come to you for; part of it has never been tested in front of anyone. The untested part is where the next few months should go — not because it is your passion, but because you do not yet know whether you are any good at it.'
+    verdict = 'Some of what you enjoy is also what people come to you for. The rest, nobody has ever watched you do. That untested part is where the next few months are worth spending — not because it is a passion, but because you do not yet know whether you are any good at it.'
   } else {
-    verdict = 'Nothing you chose as enjoyable is also something people come to you for. That split is worth taking seriously: it usually means either the enjoyable thing has never been done in public, or the thing you are good at was chosen for you. Which of those it is changes what to do next.'
+    verdict = 'Nothing you chose as enjoyable is also something people come to you for. There are two ways that happens: the thing you enjoy has never been done anywhere anyone could see it, or the thing you are good at was chosen for you by a job. Only you know which, and it changes what to do next.'
   }
 
   return { overlap: overlap.map(labelOf), verdict, count: overlap.length }
