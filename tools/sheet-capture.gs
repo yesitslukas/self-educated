@@ -18,9 +18,19 @@
 
 const SHEET_NAME = 'signups'
 
+/* `v` and `rubric` are load-bearing: the first thing anyone will want from
+   this data is to re-score it with a corrected model, and that is impossible
+   without knowing which version produced each row. `riasecRaw` is here for
+   the same reason — the six aggregated type scores have already thrown away
+   the item-level resolution any re-scoring or item analysis needs.
+
+   There is deliberately no userAgent column. The page tells visitors it
+   stores their email and their answers and nothing else, and that sentence
+   has to stay true. */
 const HEADERS = [
-  'timestamp', 'email', 'flame', 'topFields', 'cause', 'money',
-  'loves', 'goodAt', 'evidence', 'teaches', 'levels', 'riasec', 'userAgent',
+  'timestamp', 'v', 'rubric', 'email', 'flame', 'flameSe', 'topFields',
+  'interestQuality', 'cause', 'money', 'loves', 'goodAt',
+  'evidence', 'teaches', 'levels', 'tiers', 'riasecScores', 'riasecRaw',
 ]
 
 function doPost (e) {
@@ -30,9 +40,13 @@ function doPost (e) {
 
     sheet.appendRow([
       new Date(),                          // server time, not the client's
+      data.v ?? '',
+      data.rubric || '',
       data.email || '',
       data.flame ?? '',
+      data.flameSe ?? '',
       (data.topFields || []).join(', '),
+      data.interestQuality || '',
       data.answers?.cause || '',
       data.answers?.money || '',
       (data.answers?.loves || []).join(', '),
@@ -40,8 +54,9 @@ function doPost (e) {
       (data.answers?.evidence || []).join(', '),
       (data.answers?.teaches || []).join(', '),
       JSON.stringify(data.answers?.levels || {}),
-      JSON.stringify(data.riasec || {}),
-      data.userAgent || '',
+      JSON.stringify(data.tiers || {}),
+      JSON.stringify(data.riasecScores || {}),
+      JSON.stringify(data.riasecRaw || []),
     ])
 
     return json_({ ok: true })

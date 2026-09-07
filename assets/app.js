@@ -1,29 +1,39 @@
 /* ------------------------------------------------------------------
-   Self-educated — assessment flow.
-   Client-side only by design: step 1 exists to answer one question,
-   "will people finish this and hand over an email?", and that needs
-   no backend. Everything server-shaped is marked TODO.
+   Self-educated — flow, state and the render loop.
+
+   The whole UI is re-rendered from strings on every state change, which
+   is simple and fast enough at this size but has three consequences that
+   have to be handled deliberately rather than ignored: focus is
+   destroyed, scroll position is destroyed, and event listeners bound to
+   replaced nodes are lost. Each is dealt with below.
 ------------------------------------------------------------------ */
+import { DOMAINS, RIASEC_ITEMS, MONEY_MODES, RUBRIC_VERSION } from './data.js'
 import {
-  DOMAINS, ACTIVITIES, CAUSES, MONEY_MODES,
-  RIASEC_ITEMS, RIASEC_SCALE, RIASEC_TYPES, LEVEL_SCALE,
-} from './data.js'
-import {
-  scoreRiasec, scoreDomains, scoreFields, gapsFor,
-  flameIndex, tierFor, ikigaiRead,
+  scoreRiasec, scoreDomains, scoreFields, flameIndex, flameError, tierFor,
+  ikigaiRead, interestQuality, consistencyFlags, stability, tiedWithTop,
 } from './scoring.js'
-import { renderRadar } from './radar.js'
+import * as views from './views.js'
+import { captureEnabled, send, buildPayload, readStored, writeStored, clearStored } from './capture.js'
+import { downloadChart } from './export-png.js'
+import { radarCss } from './radar.js'
 
-/* Where captured signups go: a Google Apps Script web app writing into a
-   Sheet. Paste the /exec URL here — setup steps are in tools/sheet-capture.gs.
-   Left empty, the page still works and stores locally, but nothing reaches
-   you, so this must be filled in before the page is shared anywhere. */
-const CAPTURE_ENDPOINT = ''
+/* One source of truth for the chart's appearance: the page resolves the
+   tokens through var(), the PNG exporter resolves the same stylesheet
+   through getComputedStyle, so the download cannot drift from the screen. */
+document.head.insertAdjacentHTML('beforeend', `<style>${radarCss(n => `var(${n})`)}</style>`)
 
-const MAX_PICKS = 5
-const RIASEC_PAGES = [[0, 6], [6, 12], [12, 18]]
+const ITEMS_PER_PAGE = 6
+const MONEY_HORIZON = Object.fromEntries(MONEY_MODES.map(m => [m.key, m.horizon]))
 
-const state = {
+/* Derived from the data, never hard-coded: data.js promises its arrays can
+   be tuned without touching app logic, and a hand-written [[0,6],[6,12],
+   [12,18]] silently drops any nineteenth item that is ever added. */
+const RIASEC_PAGES = Array.from(
+  { length: Math.ceil(RIASEC_ITEMS.length / ITEMS_PER_PAGE) },
+  (_, p) => [p * ITEMS_PER_PAGE, Math.min((p + 1) * ITEMS_PER_PAGE, RIASEC_ITEMS.length)]
+)
+
+const blankState = () => ({
   step: 0,
   loves: [],
   goodAt: [],
@@ -34,541 +44,365 @@ const state = {
   evidence: new Set(),
   teaches: new Set(),
   results: null,
-}
+})
+
+let state = blankState()
 
 const root = document.getElementById('app')
 const bar = document.getElementById('progress-bar')
+const count = document.getElementById('progress-count')
 
 /* ---------------------------------------------------------------- */
-/* Steps                                                            */
+/* Steps                                                             */
 /* ---------------------------------------------------------------- */
 
-const steps = [
-  { id: 'intro',    render: renderIntro,   valid: () => true },
-  { id: 'loves',    render: () => renderPicker('loves',  'What do you lose time in?', 'Not what you are paid for. What you look up from and an hour has gone. Pick up to five.'), valid: () => state.loves.length > 0 },
-  { id: 'goodAt',   render: () => renderPicker('goodAt', 'What do people come to you for?', 'The thing others ask you about, even informally. Be honest rather than modest. Pick up to five.'), valid: () => state.goodAt.length > 0 },
-  { id: 'cause',    render: renderCause,   valid: () => !!state.cause },
-  { id: 'money',    render: renderMoney,   valid: () => !!state.money },
-  { id: 'riasec0',  render: () => renderRiasec(0), valid: () => riasecDone(0) },
-  { id: 'riasec1',  render: () => renderRiasec(1), valid: () => riasecDone(1) },
-  { id: 'riasec2',  render: () => renderRiasec(2), valid: () => riasecDone(2) },
-  { id: 'levels',   render: renderLevels,  valid: () => Object.values(state.levels).every(v => v !== null) },
-  { id: 'evidence', render: renderEvidence, valid: () => true },
-  { id: 'results',  render: renderResults, valid: () => true },
-]
-
-function riasecDone (page) {
+const riasecDone = page => {
   const [from, to] = RIASEC_PAGES[page]
   return state.riasec.slice(from, to).every(v => v !== null)
 }
 
-/* ---------------------------------------------------------------- */
-/* Screens                                                          */
-/* ---------------------------------------------------------------- */
+const steps = [
+  { id: 'intro', render: () => views.renderIntro(), valid: () => true },
+  {
+    id: 'loves',
+    render: () => views.renderPicker(state, 'loves', 'What do you lose time in?',
+      'Not what you are paid for. What you look up from and an hour has gone. Up to five.'),
+    valid: () => state.loves.length > 0,
+  },
+  {
+    id: 'goodAt',
+    render: () => views.renderPicker(state, 'goodAt', 'What do people come to you for?',
+      'The thing others ask you about, even informally. Be accurate rather than modest. Up to five.'),
+    valid: () => state.goodAt.length > 0,
+  },
+  { id: 'cause', render: () => views.renderCause(state), valid: () => !!state.cause },
+  { id: 'money', render: () => views.renderMoney(state), valid: () => !!state.money },
+  ...RIASEC_PAGES.map((_, p) => ({
+    id: `riasec${p}`,
+    render: () => views.renderRiasec(state, RIASEC_PAGES, p),
+    valid: () => riasecDone(p),
+  })),
+  {
+    id: 'levels',
+    render: () => views.renderLevels(state),
+    valid: () => Object.values(state.levels).every(v => v !== null),
+  },
+  { id: 'evidence', render: () => views.renderEvidence(state), valid: () => true },
+  { id: 'results', render: () => views.renderResults(state.results), valid: () => true },
+]
 
-function renderIntro () {
-  return `
-    <section class="screen intro">
-      <p class="eyebrow">Free · about 6 minutes · no account</p>
-      <h1>You did not go to university.<br><span class="glow">That is not the same as uneducated.</span></h1>
-      <p class="lede">
-        This maps what you actually know across twelve domains, finds the fields your
-        interests and knowledge already point at, and shows you the exact distance
-        between where you are and where that field starts paying.
-      </p>
-      <p class="claim">A degree proves you attended. This is built to prove you can.</p>
-      <ul class="promise">
-        <li><b>No self-flattery.</b> Levels are behavioural — what you have done, not how good you feel.</li>
-        <li><b>No fake scores.</b> Claiming a level without evidence caps you one tier lower.</li>
-        <li><b>You get the chart.</b> Yours to keep, share, and put on your profile.</li>
-      </ul>
-      <button class="btn btn-primary btn-lg" data-action="next">Start</button>
-    </section>`
-}
-
-function renderPicker (key, title, sub) {
-  const picked = state[key]
-  return `
-    <section class="screen">
-      <h2>${title}</h2>
-      <p class="sub">${sub}</p>
-      <div class="grid-pick">
-        ${ACTIVITIES.map(a => `
-          <button class="pick ${picked.includes(a.key) ? 'is-on' : ''}"
-                  data-pick="${key}" data-key="${a.key}"
-                  aria-pressed="${picked.includes(a.key)}">
-            ${a.label}
-          </button>`).join('')}
-      </div>
-      <p class="counter">${picked.length} / ${MAX_PICKS} selected</p>
-    </section>`
-}
-
-function renderCause () {
-  return `
-    <section class="screen">
-      <h2>What bugs you about the world?</h2>
-      <p class="sub">Not the noblest answer — the one you actually argue about. This is the ring most people skip, and it is the one that decides whether you stick with the work in year three.</p>
-      <div class="stack">
-        ${CAUSES.map(c => `
-          <button class="row-opt ${state.cause === c.key ? 'is-on' : ''}"
-                  data-single="cause" data-key="${c.key}">${c.label}</button>`).join('')}
-      </div>
-    </section>`
-}
-
-function renderMoney () {
-  return `
-    <section class="screen">
-      <h2>What does money need to do for you right now?</h2>
-      <p class="sub">This changes the recommendation more than anything else you have answered. A field that takes three years is the wrong answer for someone with four months of runway, however well it fits.</p>
-      <div class="stack">
-        ${MONEY_MODES.map(m => `
-          <button class="row-opt ${state.money === m.key ? 'is-on' : ''}"
-                  data-single="money" data-key="${m.key}">${m.label}</button>`).join('')}
-      </div>
-    </section>`
-}
-
-function renderRiasec (page) {
-  const [from, to] = RIASEC_PAGES[page]
-  const items = RIASEC_ITEMS.slice(from, to)
-  return `
-    <section class="screen">
-      <h2>How much is this you?</h2>
-      <p class="sub">Answer for how you actually are, not how you would like to be. ${page + 1} of 3.</p>
-      <div class="stack-q">
-        ${items.map((item, n) => {
-          const idx = from + n
-          return `
-          <div class="q">
-            <p class="q-text">${item.q}</p>
-            <div class="scale">
-              ${RIASEC_SCALE.map(s => `
-                <button class="scale-btn ${state.riasec[idx] === s.v ? 'is-on' : ''}"
-                        data-riasec="${idx}" data-val="${s.v}">${s.label}</button>`).join('')}
-            </div>
-          </div>`
-        }).join('')}
-      </div>
-    </section>`
-}
-
-function renderLevels () {
-  return `
-    <section class="screen wide">
-      <h2>Where are you in each of these?</h2>
-      <p class="sub">Twelve domains. Most people are honestly at zero in most of them — that is the normal shape of a profile, not a failure. The scale is about what you have <i>done</i>.</p>
-      <div class="levels">
-        ${DOMAINS.map(d => `
-          <div class="lvl">
-            <span class="lvl-name">${d.label}</span>
-            <div class="lvl-scale">
-              ${LEVEL_SCALE.map(s => `
-                <button class="lvl-btn ${state.levels[d.key] === s.v ? 'is-on' : ''}"
-                        data-level="${d.key}" data-val="${s.v}" title="${s.label}">${s.short}</button>`).join('')}
-            </div>
-          </div>`).join('')}
-      </div>
-      <p class="counter">${Object.values(state.levels).filter(v => v !== null).length} / ${DOMAINS.length} answered</p>
-    </section>`
-}
-
-function renderEvidence () {
-  const claimed = DOMAINS.filter(d => state.levels[d.key] >= 2)
-  if (!claimed.length) {
-    return `
-      <section class="screen">
-        <h2>Nothing to verify yet</h2>
-        <p class="sub">You have not claimed a level that needs evidence. That is a fine place to start from — it just means every domain opens at Spark, and the first thing to do is make something small and public.</p>
-      </section>`
-  }
-  return `
-    <section class="screen">
-      <h2>Which of these can you point at?</h2>
-      <p class="sub">
-        Evidence is the whole difference between a claim and a tier. Tick a domain only if
-        there is something a stranger could look at — code, a site, a client, a portfolio,
-        a payslip, a build, a case you handled.
-        <b>Unticked domains are capped one tier below what you claimed.</b>
-      </p>
-      <div class="stack">
-        ${claimed.map(d => `
-          <div class="ev-row">
-            <button class="row-opt ${state.evidence.has(d.key) ? 'is-on' : ''}"
-                    data-evidence="${d.key}">
-              <span>${d.label}</span>
-              <span class="ev-flag">${state.evidence.has(d.key) ? 'Can point at it' : 'No proof yet'}</span>
-            </button>
-            ${state.evidence.has(d.key) && state.levels[d.key] >= 4 ? `
-              <button class="chip ${state.teaches.has(d.key) ? 'is-on' : ''}" data-teaches="${d.key}">
-                I also teach or mentor others in this
-              </button>` : ''}
-          </div>`).join('')}
-      </div>
-    </section>`
-}
-
-function renderResults () {
-  const r = state.results
-  const top = r.fields[0]
-  const gaps = gapsFor(top, r.domains).slice(0, 4)
-  const strongest = [...DOMAINS]
-    .map(d => ({ ...d, level: r.domains[d.key], tier: tierFor(r.domains[d.key], state.evidence.has(d.key), state.teaches.has(d.key)) }))
-    .filter(d => d.tier.key !== 'none')
-    .sort((a, b) => b.level - a.level)
-    .slice(0, 4)
-
-  return `
-    <section class="screen results">
-      <p class="eyebrow">Your knowledge profile</p>
-      <div class="headline">
-        <div class="flame">
-          <span class="flame-num">${r.flame}</span>
-          <span class="flame-lbl">flame index</span>
-        </div>
-        <p class="headline-txt">
-          Your profile is strongest in <b>${strongest[0]?.label ?? 'nothing yet'}</b>, and points
-          most clearly at <b>${top.name}</b>.
-        </p>
-      </div>
-
-      <div class="chart-wrap">
-        ${renderRadar(r.domains, top.demand, top.name)}
-      </div>
-
-      <div class="block">
-        <h3>The ikigai read</h3>
-        <p class="read">${r.ikigai.verdict}</p>
-        ${r.ikigai.count ? `<p class="sub">Overlapping in: ${r.ikigai.overlap.map(o => `<span class="tag">${o}</span>`).join(' ')}</p>` : ''}
-      </div>
-
-      <div class="block">
-        <h3>Fields that fit you</h3>
-        <div class="fields">
-          ${r.fields.slice(0, 4).map((f, i) => `
-            <article class="field ${i === 0 ? 'is-top' : ''}">
-              <header>
-                <h4>${f.name}</h4>
-                <span class="match">${Math.round(f.score * 100)}% fit</span>
-              </header>
-              <p>${f.blurb}</p>
-              ${f.runwayRisk ? `
-                <p class="risk">Longer than the runway you gave. Realistic only if something
-                else pays the bills for the first ${f.months[0]} months.</p>` : ''}
-              <dl class="meta">
-                <div><dt>Time to first income</dt><dd>${f.months[0]}–${f.months[1]} months</dd></div>
-                <div><dt>Roles</dt><dd>${f.roles.join(' · ')}</dd></div>
-                <div><dt>AI doing this work today</dt><dd>${aiBadge(f.aiExposure)}</dd></div>
-              </dl>
-            </article>`).join('')}
-        </div>
-        <p class="footnote">
-          AI-exposure figures are placeholders in this prototype. Before launch they get
-          replaced with real values joined on occupation codes — O*NET for the task data,
-          the Anthropic Economic Index for observed vs. theoretical coverage.
-        </p>
-      </div>
-
-      <div class="block">
-        <h3>Where you stand today</h3>
-        <div class="tiers">
-          ${strongest.map(d => `
-            <div class="tier-row">
-              <span class="tier-dom">${d.label}</span>
-              <span class="tier-badge t-${d.tier.key}">${d.tier.name}</span>
-              <span class="tier-meaning">
-                <b>${d.tier.kind}</b> — ${d.tier.equiv}
-                <i>${d.tier.blurb}</i>
-              </span>
-            </div>`).join('')}
-        </div>
-        <p class="sub">
-          Spark → Kindling → Flame → Torch → Beacon. Tiers above Kindling need evidence,
-          not self-assessment — which is the whole point. A degree proves you attended.
-          This is trying to prove you can.
-        </p>
-      </div>
-
-      <div class="block">
-        <h3>The distance to ${top.name}</h3>
-        <p class="sub">The gap between the blue outline and yours, ranked by how much this field
-        actually leans on each domain — not by which hole is biggest. Closing the top one is the only
-        thing that matters for the next three months.</p>
-        ${gaps.length ? `
-        <ol class="gaps">
-          ${gaps.map(g => `
-            <li>
-              <span class="gap-name">${g.label}</span>
-              <span class="gap-bar"><i style="width:${(g.have / 4 * 100).toFixed(0)}%"></i><u style="width:${(g.want / 4 * 100).toFixed(0)}%"></u></span>
-              <span class="gap-num">${g.have.toFixed(1)} → ${g.want.toFixed(1)}</span>
-            </li>`).join('')}
-        </ol>` : `
-        <p class="read">You already meet or exceed what this field asks for in every domain that
-        matters to it. Your problem is not knowledge — it is evidence and access. The next move
-        is proof other people can check, not another course.</p>`}
-      </div>
-
-      <div class="block capture">
-        <h3>Keep this profile</h3>
-        <p class="sub">
-          Right now this chart disappears when you close the tab. Leave an email and we
-          save it, track it as it changes, and tell you when tier assessments open for
-          <b>${top.name}</b>.
-        </p>
-        <form id="capture" class="capture-form">
-          <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
-          <button class="btn btn-primary" type="submit">Save my profile</button>
-        </form>
-        <p class="capture-note" id="capture-note"></p>
-        <p class="privacy">
-          We store your email and the answers behind this chart, nothing else. No tracking,
-          no third parties, no reselling. Reply to any message and we delete it the same day.
-        </p>
-        <div class="secondary-actions">
-          <button class="btn btn-ghost" data-action="download">Download the chart</button>
-          <button class="btn btn-ghost" data-action="restart">Start over</button>
-        </div>
-      </div>
-    </section>`
-}
-
-function aiBadge (v) {
-  const pct = Math.round(v * 100)
-  const level = v >= 0.65 ? 'high' : v >= 0.4 ? 'mid' : 'low'
-  const word = { high: 'heavily exposed', mid: 'partly exposed', low: 'barely touched' }[level]
-  return `<span class="ai-badge ai-${level}">${pct}% — ${word}</span>`
-}
+const RESULTS_STEP = steps.length - 1
 
 /* ---------------------------------------------------------------- */
-/* Flow                                                             */
+/* Computation                                                       */
 /* ---------------------------------------------------------------- */
 
 function compute () {
   const riasec = scoreRiasec(state.riasec)
+  const domains = scoreDomains(state.levels)
   const ikigai = {
     loves: state.loves,
     goodAt: state.goodAt,
     cause: state.cause,
-    moneyHorizon: MONEY_MODES.find(m => m.key === state.money)?.horizon ?? 18,
+    moneyHorizon: MONEY_HORIZON[state.money] ?? 18,
   }
-  const domains = scoreDomains(state.levels, ikigai)
+
+  const fields = scoreFields(riasec, domains, ikigai)
+  const tied = tiedWithTop(fields)
+  const flame = flameIndex(domains, state.evidence)
+
+  // The tier is the product's actual output, so it is computed here and
+  // stored — not derived inside a template, where it could never be
+  // recorded in the payload or re-scored later.
+  const tiers = Object.fromEntries(DOMAINS.map(d =>
+    [d.key, tierFor(domains[d.key], state.evidence.has(d.key), state.teaches.has(d.key)).key]))
+
+  const ranked = Object.entries(riasec.score)
+    .filter(([, v]) => v !== null)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t]) => t)
+
+  // The cause is a tie-break and a sentence, never a silent bonus: it
+  // predicts whether someone is still doing this in year three, not
+  // whether they can get in at all.
+  const meaningful = tied.filter(f => f.causes.includes(state.cause))
+  const causeNote = meaningful.length && state.cause
+    ? `Of the fields this test cannot separate, <b>${meaningful[0].name}</b> is the one that touches what you said bugs you about the world. That is the difference that shows up in year three rather than year one.`
+    : ''
+
+  const prior = readStored()
+
   state.results = {
+    rubric: RUBRIC_VERSION,
+    date: new Date().toISOString().slice(0, 10),
     riasec,
+    quality: interestQuality(state.riasec),
+    topTypes: ranked.slice(0, 2),
     domains,
-    fields: scoreFields(riasec, domains, ikigai),
-    flame: flameIndex(domains),
+    tiers,
+    fields,
+    tied,
+    flame,
+    flameSe: flameError(domains, state.evidence),
     ikigai: ikigaiRead(ikigai),
+    flags: consistencyFlags(state.levels, ikigai),
+    causeNote,
+    captureEnabled,
+    // Nobody who has practised nothing can be told what they are good at.
+    thin: Object.values(state.levels).every(v => (v ?? 0) < 2),
+    stability: prior
+      ? stability(prior, { levels: state.levels, topFields: fields.map(f => f.key), flame }, Date.now())
+      : null,
   }
 }
+
+
+/* ---------------------------------------------------------------- */
+/* Render                                                            */
+/* ---------------------------------------------------------------- */
+
+let lastStep = -1
 
 function render () {
   const step = steps[state.step]
   if (step.id === 'results' && !state.results) compute()
 
-  const isResults = step.id === 'results'
-  const isIntro = step.id === 'intro'
+  // Remember what had focus so a keyboard user is not thrown back to the
+  // top of the document after every single answer.
+  const active = document.activeElement
+  const focusKey = active && active !== document.body
+    ? JSON.stringify({ ...active.dataset })
+    : null
 
-  root.innerHTML = step.render() + (isResults || isIntro ? '' : navHtml(step))
-  bar.style.width = `${(state.step / (steps.length - 1)) * 100}%`
-  root.scrollIntoView({ block: 'start' })
+  const chromeless = step.id === 'results' || step.id === 'intro'
+  root.innerHTML = step.render() + (chromeless ? '' : navHtml(step))
 
-  if (isResults) document.getElementById('capture').addEventListener('submit', onCapture)
+  if (focusKey) {
+    const match = [...root.querySelectorAll('button')]
+      .find(el => JSON.stringify({ ...el.dataset }) === focusKey)
+    match?.focus({ preventScroll: true })
+  }
+
+  // Scroll only when the step actually changed. Scrolling on every state
+  // change means answering question ten on a phone throws the page back
+  // to question one.
+  if (state.step !== lastStep) {
+    lastStep = state.step
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    if (!focusKey) root.querySelector('h1, h2')?.focus?.({ preventScroll: true })
+  }
+
+  const progress = state.step / (steps.length - 1)
+  bar.style.width = `${progress * 100}%`
+  count.textContent = state.step === 0 ? ''
+    : state.step === RESULTS_STEP ? 'Done'
+    : `Step ${state.step} of ${steps.length - 2}`
+
+  if (step.id === 'results' && captureEnabled) {
+    document.getElementById('capture')?.addEventListener('submit', onCapture)
+  }
+  persist()
 }
 
 function navHtml (step) {
   const ok = step.valid()
+  const next = steps[state.step + 1]
   return `
     <nav class="nav">
       <button class="btn btn-ghost" data-action="back">Back</button>
       <button class="btn btn-primary" data-action="next" ${ok ? '' : 'disabled'}>
-        ${steps[state.step + 1]?.id === 'results' ? 'See my profile' : 'Continue'}
+        ${next?.id === 'results' ? 'See my profile' : 'Continue'}
       </button>
     </nav>`
 }
 
-function go (delta) {
+/* ---------------------------------------------------------------- */
+/* Navigation                                                        */
+/* ---------------------------------------------------------------- */
+
+function go (delta, viaHistory) {
   const next = state.step + delta
   if (next < 0 || next >= steps.length) return
   if (delta > 0 && !steps[state.step].valid()) return
-  // Answers changed, so any cached result is stale.
-  if (delta < 0) state.results = null
   state.step = next
+  if (!viaHistory) {
+    try { history.pushState({ step: next }, '', `#${steps[next].id}`) } catch {}
+  }
   render()
 }
 
-/* Single delegated listener — the whole UI is re-rendered strings. */
+window.addEventListener('popstate', e => {
+  const step = e.state?.step
+  state.step = typeof step === 'number' && step < steps.length ? step : 0
+  render()
+})
+
+/* Any change to an answer invalidates the cached result. Previously this
+   happened only on backward navigation, which was correct only because
+   results was a dead end — adding a "Change an answer" button to that
+   screen would otherwise have started showing people stale profiles. */
+const dirty = () => { state.results = null }
+
+/* ---------------------------------------------------------------- */
+/* Events — one delegated listener, since the DOM is replaced wholesale */
+/* ---------------------------------------------------------------- */
+
 root.addEventListener('click', e => {
   const el = e.target.closest('button')
-  if (!el) return
+  // A <button> with no type attribute reports type "submit", so testing
+  // el.type here would skip every control in the assessment. The capture
+  // form has its own submit handler; scope the exclusion to that form.
+  if (!el || el.disabled || el.closest('#capture')) return
 
-  if (el.dataset.action === 'next') return go(1)
-  if (el.dataset.action === 'back') return go(-1)
-  if (el.dataset.action === 'restart') return restart()
-  if (el.dataset.action === 'download') return downloadChart()
+  const d = el.dataset
 
-  if (el.dataset.pick) {
-    const list = state[el.dataset.pick]
-    const key = el.dataset.key
-    const i = list.indexOf(key)
+  if (d.action === 'next') return go(1)
+  if (d.action === 'back') return go(-1)
+  if (d.action === 'restart') return restart()
+  if (d.action === 'download') {
+    return downloadChart(root.querySelector('svg.radar'), (msg, ok) => {
+      const note = document.getElementById('export-note')
+      if (!note) return
+      note.textContent = msg
+      note.className = `export-note ${ok ? 'is-ok' : 'is-warn'}`
+    })
+  }
+
+  if (d.pick) {
+    const list = state[d.pick]
+    const i = list.indexOf(d.key)
     if (i >= 0) list.splice(i, 1)
-    else if (list.length < MAX_PICKS) list.push(key)
+    else if (list.length < views.MAX_PICKS) list.push(d.key)
+    dirty()
     return render()
   }
 
-  if (el.dataset.single) { state[el.dataset.single] = el.dataset.key; return go(1) }
+  // No auto-advance: every other screen in the flow is confirmed with
+  // Continue, and a single-select that jumps forward on its own denies
+  // people the chance to change their mind.
+  if (d.single) { state[d.single] = d.key; dirty(); return render() }
 
-  if (el.dataset.riasec) {
-    state.riasec[Number(el.dataset.riasec)] = Number(el.dataset.val)
+  if (d.riasec) { state.riasec[Number(d.riasec)] = Number(d.val); dirty(); return render() }
+
+  if (d.level) {
+    const k = d.level
+    state.levels[k] = Number(d.val)
+    // Prune at the point of truth. The evidence screen only renders
+    // domains at level 2+, so lowering a level afterwards would otherwise
+    // strand a tick the user can no longer see or remove — and it would
+    // still be written into the captured dataset.
+    if (state.levels[k] < 2) state.evidence.delete(k)
+    if (state.levels[k] < 4) state.teaches.delete(k)
+    dirty()
     return render()
   }
 
-  if (el.dataset.level) { state.levels[el.dataset.level] = Number(el.dataset.val); return render() }
-
-  if (el.dataset.evidence) {
-    const k = el.dataset.evidence
-    state.evidence.has(k) ? state.evidence.delete(k) : state.evidence.add(k)
-    if (!state.evidence.has(k)) state.teaches.delete(k)
+  if (d.evidence) {
+    const k = d.evidence
+    if (state.evidence.has(k)) { state.evidence.delete(k); state.teaches.delete(k) }
+    else state.evidence.add(k)
+    dirty()
     return render()
   }
 
-  if (el.dataset.teaches) {
-    const k = el.dataset.teaches
+  if (d.teaches) {
+    const k = d.teaches
     state.teaches.has(k) ? state.teaches.delete(k) : state.teaches.add(k)
+    dirty()
     return render()
   }
 })
 
 function restart () {
-  state.step = 0
-  state.loves = []; state.goodAt = []; state.cause = ''; state.money = ''
-  state.riasec = Array(RIASEC_ITEMS.length).fill(null)
-  state.levels = Object.fromEntries(DOMAINS.map(d => [d.key, null]))
-  state.evidence = new Set(); state.teaches = new Set()
-  state.results = null
+  state = blankState()
+  lastStep = -1
+  // Do not leave the previous person's email and full profile behind on a
+  // shared machine.
+  clearStored()
+  clearSession()
+  try { history.pushState({ step: 0 }, '', '#intro') } catch {}
   render()
 }
 
 /* ---------------------------------------------------------------- */
-/* Email capture — the actual thing step 1 is testing                */
+/* Session persistence — a refresh must not cost 25 answers            */
+/* ---------------------------------------------------------------- */
+
+const SESSION_KEY = 'selfeducated.session'
+
+function persist () {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      ...state,
+      results: null,
+      evidence: [...state.evidence],
+      teaches: [...state.teaches],
+    }))
+  } catch {}
+}
+
+function clearSession () {
+  try { sessionStorage.removeItem(SESSION_KEY) } catch {}
+}
+
+function rehydrate () {
+  let saved
+  try { saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null') } catch { return }
+  if (!saved || typeof saved.step !== 'number') return
+  // Validate rather than trust: a stale shape from an older deploy must not
+  // brick the page.
+  try {
+    state = {
+      ...blankState(),
+      ...saved,
+      step: Math.min(saved.step, steps.length - 1),
+      riasec: Array.isArray(saved.riasec) && saved.riasec.length === RIASEC_ITEMS.length
+        ? saved.riasec : Array(RIASEC_ITEMS.length).fill(null),
+      levels: { ...Object.fromEntries(DOMAINS.map(d => [d.key, null])), ...(saved.levels || {}) },
+      evidence: new Set(saved.evidence || []),
+      teaches: new Set(saved.teaches || []),
+      results: null,
+    }
+  } catch { state = blankState() }
+}
+
+/* ---------------------------------------------------------------- */
+/* Capture                                                           */
 /* ---------------------------------------------------------------- */
 
 async function onCapture (e) {
   e.preventDefault()
   const note = document.getElementById('capture-note')
-  const email = new FormData(e.target).get('email')
-
-  const payload = {
-    email,
-    profile: state.results.domains,
-    flame: state.results.flame,
-    topFields: state.results.fields.slice(0, 3).map(f => f.key),
-    riasec: state.results.riasec,
-    answers: {
-      loves: state.loves, goodAt: state.goodAt,
-      cause: state.cause, money: state.money,
-      levels: state.levels,
-      evidence: [...state.evidence], teaches: [...state.teaches],
-    },
-    // The sheet stamps its own server-side time; this is only a fallback
-    // for the copy kept in localStorage.
-    savedAt: new Date().toISOString(),
-    userAgent: navigator.userAgent,
-  }
-
-  // Local copy first, so a network failure can never lose someone's answers.
-  localStorage.setItem('selfeducated.profile', JSON.stringify(payload))
-
-  if (!CAPTURE_ENDPOINT) {
-    note.textContent = 'Saved in this browser only — the capture endpoint is not connected yet (see tools/sheet-capture.gs).'
-    note.className = 'capture-note is-warn'
-    return
-  }
-
   const btn = e.target.querySelector('button')
+  const email = new FormData(e.target).get('email')
+  const payload = buildPayload(email, state, state.results, new Date().toISOString())
+
+  const localSaved = writeStored(payload)
+
   btn.disabled = true
   note.textContent = 'Saving…'
   note.className = 'capture-note'
 
-  const delivered = await send(payload)
+  const { ok, confirmed } = await send(payload)
   btn.disabled = false
 
-  if (delivered) {
-    note.textContent = 'Saved. Your profile is recorded — you will hear from us when tier assessments open.'
+  if (ok && confirmed) {
+    note.textContent = 'Saved. You will hear from us once, when checked assessments open.'
     note.className = 'capture-note is-ok'
     e.target.reset()
+  } else if (ok) {
+    note.textContent = 'Sent, but this browser would not let us read the confirmation. If you do not hear anything, write to us.'
+    note.className = 'capture-note is-warn'
   } else {
-    note.textContent = 'Could not reach the server. Your profile is stored in this browser, so nothing is lost — try again in a moment.'
+    note.textContent = localSaved
+      ? 'Could not reach the server. Your answers are still in this browser, so nothing is lost — try again in a moment.'
+      : 'Could not reach the server, and this browser is blocking local storage. Download the chart before you close the tab.'
     note.className = 'capture-note is-warn'
   }
 }
 
-/* Apps Script is awkward to POST to from a browser. A JSON content-type
-   triggers a CORS preflight that Apps Script does not answer, so the request
-   goes as text/plain — a "simple" request, no preflight — and the script
-   parses the body itself. If even that is blocked, retry opaquely: the row
-   still lands in the sheet, we just cannot read the response to confirm. */
-async function send (payload) {
-  const body = JSON.stringify(payload)
-  try {
-    const res = await fetch(CAPTURE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body,
-      redirect: 'follow',
-    })
-    return res.ok
-  } catch {
-    try {
-      await fetch(CAPTURE_ENDPOINT, { method: 'POST', mode: 'no-cors', body })
-      return true
-    } catch {
-      return false
-    }
-  }
-}
+/* ---------------------------------------------------------------- */
 
-/* Export the chart as a PNG — this is the object people put on LinkedIn,
-   so it has to leave the page cleanly. */
-function downloadChart () {
-  const svg = root.querySelector('svg.radar')
-  if (!svg) return
-
-  const style = getComputedStyle(document.documentElement)
-  const clone = svg.cloneNode(true)
-  clone.setAttribute('width', 1240)
-  clone.setAttribute('height', 1240)
-  // Inline the computed palette so the exported file is standalone.
-  const css = `
-    .rd-ring,.rd-spoke{fill:none;stroke:${style.getPropertyValue('--line')};stroke-width:1}
-    .rd-ring{stroke-width:1.1}
-    .rd-tick{fill:${style.getPropertyValue('--muted')};font:11px system-ui}
-    .rd-label{fill:${style.getPropertyValue('--text')};font:13px system-ui}
-    .rd-demand{fill:${style.getPropertyValue('--demand')};fill-opacity:.16;stroke:${style.getPropertyValue('--demand')};stroke-width:2}
-    .rd-demand-dot{fill:${style.getPropertyValue('--demand')}}
-    .rd-you{fill:${style.getPropertyValue('--accent')};fill-opacity:.3;stroke:${style.getPropertyValue('--accent')};stroke-width:2}
-    .rd-you-dot{fill:${style.getPropertyValue('--accent')}}
-    .rd-legend-box{fill:${style.getPropertyValue('--bg')};stroke:${style.getPropertyValue('--line')}}
-    .rd-legend-text{fill:${style.getPropertyValue('--text')};font:12px system-ui}`
-  clone.insertAdjacentHTML('afterbegin', `<style>${css}</style><rect width="100%" height="100%" fill="${style.getPropertyValue('--bg')}"/>`)
-
-  const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml' })
-  const url = URL.createObjectURL(blob)
-  const img = new Image()
-  img.onload = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1240; canvas.height = 1240
-    canvas.getContext('2d').drawImage(img, 0, 0)
-    canvas.toBlob(png => {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(png)
-      a.download = 'self-educated-profile.png'
-      a.click()
-      URL.revokeObjectURL(a.href)
-    })
-    URL.revokeObjectURL(url)
-  }
-  img.src = url
-}
-
+rehydrate()
+try { history.replaceState({ step: state.step }, '', `#${steps[state.step].id}`) } catch {}
 render()

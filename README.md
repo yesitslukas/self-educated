@@ -1,99 +1,132 @@
-# Self-educated — step 1: the free assessment
+# Self-educated — the knowledge-profile assessment
 
-A single-purpose page that answers one question before anything else gets built:
+A free web assessment for people who learned outside university. It maps what you
+have actually done across twelve domains, matches that against a rubric of what
+seventeen fields ask of people entering them, and places you on a five-tier ladder
+where every tier above the first requires evidence.
 
-> **Will people finish this, and will they hand over an email to keep the result?**
-
-If yes, build the paid tier. If no, the concept needs reshaping — and you found
-out in two weeks rather than six months.
+Live: <https://yesitslukas.github.io/self-educated/> · Method: [`method.html`](method.html)
 
 ## Run it
 
 ```bash
-python3 -m http.server 4321 --directory .
+python3 .claude/serve.py 4321
 ```
 
-Then open <http://localhost:4321>. No build step, no dependencies, no framework.
-Plain ES modules — which means it must be served over HTTP, not opened as a `file://`.
+Then open <http://localhost:4321>. No build step, no dependencies, no framework —
+plain ES modules, which means it must be served over HTTP rather than opened as a
+`file://`. The dev server sends `no-store` so module edits show up on reload.
 
-## What it does
+```bash
+node tests/run.mjs
+```
 
-1. **Ikigai, four rings** — what you lose time in, what people come to you for,
-   what bugs you about the world, and what money has to do for you right now.
-   The overlap between rings one and two is reported honestly, including when
-   there isn't one.
-2. **RIASEC inventory** — 18 items, the same Holland taxonomy O\*NET uses, so
-   results can be joined to real occupation data later.
-3. **Twelve domains, self-rated behaviourally** — what you have *done*, not how
-   good you feel. Nudged slightly by the ikigai answers, capped so the nudge can
-   never invent competence.
-4. **Evidence check** — claims you cannot point at are capped one tier lower.
-   This is the difference between a credential and a personality quiz.
-5. **Result** — flame index, the radar chart with your profile against what the
-   matched field demands, ranked fields with time-to-income and AI exposure,
-   tier placement, and the ranked gap list. Then email capture.
+41 invariant tests over the scoring engine. They assert properties, not pinned
+numbers, so they survive a re-weighting of the model — which is the point. A block
+marked `REGRESSIONS` pins the specific defects found in the v1 audit; each of those
+fails against the code as it was before.
 
 ## Files
 
 | File | What lives there |
 |---|---|
-| `assets/data.js` | All questions, domains, tiers and fields. Tune content here. |
+| `assets/data.js` | Questions, domains, tiers, and the seventeen fields. All content lives here. |
 | `assets/scoring.js` | Pure scoring functions. No DOM — this is what moves server-side later. |
-| `assets/radar.js` | Hand-rolled SVG chart. No chart library, so it exports cleanly and never needs a CDN. |
-| `assets/app.js` | Flow, rendering, email capture, PNG export. |
-| `assets/styles.css` | Everything visual. Dark by default, light follows the OS. |
+| `assets/views.js` | Pure `(state) → HTML` render functions. |
+| `assets/radar.js` | The SVG chart, plus the one stylesheet the page and the PNG exporter share. |
+| `assets/capture.js` | Storage and the POST to the Sheet. |
+| `assets/export-png.js` | PNG export of the chart. |
+| `assets/app.js` | State, routing, the render loop. |
+| `method.html` | The public methodology. Keep it in sync with the code. |
+| `tools/sheet-capture.gs` | The Apps Script that receives signups. |
 
-## Before this goes live
+## Two things to know before changing anything
 
-- [ ] **Wire `CAPTURE_ENDPOINT`** in `assets/app.js` — the one thing standing
-      between a live page and actual data. Empty right now, so signups reach
-      `localStorage` and nowhere else, which means you learn nothing from
-      posting it. Full setup is in the header of `tools/sheet-capture.gs`:
-      new Sheet → Apps Script → paste → deploy as a web app with access set to
-      **Anyone** → paste the `/exec` URL into `app.js` → commit and push.
-- [ ] **Replace the `aiExposure` numbers** in `data.js`. They are editorial
-      placeholders so the UI could be built and tested. Real sources:
-      [O\*NET](https://www.onetcenter.org/database.html) (free, occupation and task
-      data, joins on SOC codes) and the Anthropic Economic Index (observed vs.
-      theoretical AI coverage). Do not ship placeholders as if they were sourced.
-- [ ] **Sanity-check `months` ranges per field** against your own market. They are
-      estimates, and people will make decisions on them.
-- [ ] Add a privacy line at the email capture — what you store, why, how to delete.
-      Required under GDPR, and it measurably raises conversion anyway.
+**Bump the asset version.** `index.html` carries an import map pinning every module
+to `?v=N`. Change a module and you must bump `N` in that map *and* on the
+`<script>` and stylesheet tags, or visitors keep the old graph — GitHub Pages
+serves assets with a ten-minute cache and browsers hold module graphs harder than
+that.
+
+**`method.html` is a promise.** It states the weights, the tier table and the
+limitations. If you change the scoring, change that page in the same commit, or the
+product starts lying about itself — which for this product is the only unrecoverable
+failure.
+
+## Design rules
+
+Three tokens systems in `styles.css`, and nothing should sit outside them: a 1.25
+modular type scale (`--t-xs` … `--t-4xl`), a 4px spacing grid (`--s-1` … `--s-20`),
+and eight colour tokens per theme. Contrast of `--muted` and `--accent` against both
+`--bg` and `--surface` was measured against WCAG AA in light and dark; if you change
+a colour, measure it again rather than eyeballing it.
+
+## What the scoring does, and why
+
+The full version is on the method page. The short version, because these are the
+decisions most likely to be undone by accident:
+
+- **Interest matching centres both vectors on their own means.** Answering
+  "strongly like" to all eighteen items therefore buys nothing. Before this, a
+  straight-liner scored a perfect match on every single field.
+- **Knowledge fit is a criticality-weighted shortfall**, not coverage. The previous
+  form reduced algebraically to `Σmin(u,d)/Σd`, in which the demand vector was only
+  a ceiling and never a weight — so someone who had merely *read about* all twelve
+  domains outranked a genuine specialist in a field's own core.
+- **Evidence caps a claim; it never promotes one.** Both the intro and the evidence
+  screen promise this. The old table promoted, so "practised it — small things of my
+  own" plus one self-ticked box returned a tier whose text claims the working
+  knowledge of three to four years of study.
+- **Nothing adjusts upward.** An earlier version added up to a third of a level based
+  on what you said you enjoyed, in an instrument whose own screens promise levels are
+  behavioural. Contradictions between sections are now shown to the user instead.
+- **Every number carries its margin**, computed by perturbing each input by its own
+  standard error and combining the movements in quadrature. Two fields closer than
+  the combined error are reported as tied rather than ranked.
+
+## Before this is shared widely
+
+- [ ] **Wire `CAPTURE_ENDPOINT`** in `assets/capture.js`. While it is empty the
+      results page deliberately does not ask for an email at all — collecting
+      addresses the product cannot store, in exchange for a follow-up it cannot
+      send, would cost more trust than it earns. Setup is in the header of
+      [`tools/sheet-capture.gs`](tools/sheet-capture.gs).
+- [ ] **Add operator identity** to the privacy line and the footer before the form
+      goes live — a name and a contact address. Storing an email address without
+      saying who is storing it is not GDPR-compliant.
+- [ ] **Replace the field rubric with derived data.** The `entryDemand` vectors and
+      the `months` ranges are an editorial judgement, labelled as such on the method
+      page and versioned as `RUBRIC_VERSION`. The honest version comes from
+      [O*NET's free downloads](https://www.onetcenter.org/database.html) joined on
+      SOC codes, with the derivation script committed alongside.
+- [ ] **`aiBand` is a three-way editorial judgement**, deliberately not a percentage,
+      because nobody has measured what share of these occupations current AI performs.
+      Do not turn it back into a number without a citation.
 
 ## Deploying
 
-Static, so anything serves it. Already live on GitHub Pages from `main` — every
-push to `main` redeploys within about a minute.
+Static, so anything serves it. Live on GitHub Pages from `main`; every push
+redeploys within about a minute.
 
-**Custom domain**, once you buy one: add a `CNAME` file at the repo root
-containing just the bare domain, then at your registrar point a `CNAME` record
-for `www` at `yesitslukas.github.io`, and the apex `@` at GitHub's four A
-records (`185.199.108.153`, `.109.153`, `.110.153`, `.111.153`). Then tick
-"Enforce HTTPS" in Settings → Pages once the certificate is issued.
+**Custom domain**, once bought: add a `CNAME` file at the repo root containing the
+bare domain, point a `CNAME` record for `www` at `yesitslukas.github.io` and the
+apex `@` at GitHub's four A records (`185.199.108.153`, `.109.153`, `.110.153`,
+`.111.153`), then tick "Enforce HTTPS" once the certificate is issued.
 
-Pages stops being enough the moment you need accounts, saved profiles or
-payments: it has no server, so there is nowhere to hold an API key or verify a
-Stripe webhook. At that point move to Vercel (same repo, free tier, adds API
-routes) rather than bolting a backend onto a static host. The Sheet capture is
-deliberately the kind of thing that gets thrown away at that step — it exists to
+Pages stops being enough the moment you need accounts, saved profiles or payments:
+it has no server, so there is nowhere to hold an API key or verify a Stripe webhook.
+At that point move to Vercel (same repo, free tier, adds API routes). The Sheet
+capture is deliberately the kind of thing thrown away at that step — it exists to
 answer the validation question, not to be architecture.
-
-## Data this collects
-
-Email, the twelve domain ratings, RIASEC answers, ikigai selections, and the
-matched fields — into your Sheet, plus a copy in the visitor's own browser. No
-tracking, no third-party scripts, no analytics. The privacy line under the form
-says exactly this; keep the two in sync if you change what is stored.
 
 ## Naming — the one legal constraint
 
 Do not rename the tiers, or anything else here, to **bachelor**, **master**,
-**Magister**, **Diplom**, **degree** or **Meister**. All are protected titles in
-the EU, the UK and the US; awarding one without accreditation is a criminal
-offence in several countries, Germany included (§132a StGB). "Meister" rules out
-the apprentice/journeyman/master guild ladder too, which is otherwise a natural
-fit. `Hochschule`, `Universität` and `Akademie` are regionally restricted as well.
+**Magister**, **Diplom**, **degree** or **Meister**. All are protected titles in the
+EU, the UK and the US; awarding one without accreditation is a criminal offence in
+several countries, Germany included (§132a StGB). "Meister" rules out the
+apprentice/journeyman/master guild ladder too. `Hochschule`, `Universität` and
+`Akademie` are regionally restricted as well.
 
 The substance survives the constraint intact, because the protected words all
 describe **who granted the thing**. This platform does not grant a title — it
@@ -102,22 +135,22 @@ equivalent stretch of formal study is *meant* to produce:
 
 | Tier | Names | Says |
 |---|---|---|
-| Spark | Survey knowledge | You can follow the conversation |
-| Kindling | Working knowledge | Roughly a first year of study |
-| Flame | Professional knowledge | The working knowledge a three-year course of study is meant to produce |
-| Torch | Specialist knowledge | The depth a taught postgraduate year is meant to produce |
-| Beacon | Original knowledge | You produce what others learn from |
+| Spark | Survey knowledge | You can follow the conversation, not yet lead it |
+| Kindling | Working knowledge | The grounding a first year of full-time study is meant to produce |
+| Flame | Professional knowledge | The working knowledge three to four years of full-time study is meant to produce |
+| Torch | Specialist knowledge | The depth a further specialist year after that is meant to produce |
+| Beacon | Original knowledge | Past the point a course of study takes anyone |
 
-**"is meant to produce" carries the legal weight.** It is a factual claim about
-the intended substance of a course of study — provable, and not a claim to have
-awarded anything. It also lands the sharper point for free: the degree only
-intends it; this measures whether it happened.
+**"is meant to produce" carries the legal weight.** It is a factual claim about the
+intended substance of a course of study — provable, and not a claim to have awarded
+anything. A test in `tests/run.mjs` fails if any tier naming a duration loses that
+hedge, or if a protected title appears in a tier's text.
 
 Which is the whole pitch in one line:
 
 > **A degree proves you attended. This proves you can.**
 
 Note the comparison is evidence, not price. Price is the weaker attack — public
-university is close to free in Germany, so "a fraction of the cost" invites
-"mine was free". The real cost of the degree is three years, and the real
-weakness is that nobody checks whether it worked.
+university is close to free in Germany, so "a fraction of the cost" invites "mine was
+free". The real cost of the degree is three years, and the real weakness is that
+nobody checks whether it worked.

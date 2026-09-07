@@ -4,7 +4,10 @@
     {
       "name": "self-educated",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4321", "--directory", "/Users/lukasjanik/self-educated"],
+      "runtimeArgs": [
+        "/Users/lukasjanik/self-educated/.claude/serve.py",
+        "4321"
+      ],
       "port": 4321
     }
   ]
