@@ -77,6 +77,48 @@ test('every field declares an entry demand for every domain', () => {
   }
 })
 
+test('every field cites an O*NET occupation, and its interest vector matches the published code', () => {
+  // The interest half of the match is derived, not invented: each field names
+  // an O*NET-SOC occupation and that occupation's published Holland code, and
+  // the vector is that code with 3 / 2 / 1 for first / second / third. This
+  // test is what stops the vector and the citation drifting apart — an
+  // unsourced number wearing a source is worse than an honest guess.
+  const WEIGHT = [3, 2, 1]
+  for (const f of FIELDS) {
+    assert(/^\d{2}-\d{4}\.\d{2}$/.test(f.soc ?? ''), `${f.key}.soc "${f.soc}" is not an O*NET-SOC code`)
+    assert(/^[RIASEC]{2,3}$/.test(f.hollandCode ?? ''), `${f.key}.hollandCode "${f.hollandCode}" is not two or three Holland letters`)
+    assert(new Set(f.hollandCode).size === f.hollandCode.length, `${f.key}.hollandCode repeats a letter`)
+    for (const t of TYPES) {
+      const rank = f.hollandCode.indexOf(t)
+      const expected = rank === -1 ? 0 : WEIGHT[rank]
+      eq(f.riasec[t], expected,
+        `${f.key}.riasec.${t} disagrees with its declared O*NET code ${f.hollandCode}`)
+    }
+  }
+})
+
+test('the field set still discriminates between interest profiles', () => {
+  // Several fields legitimately share an O*NET code, which is honest but only
+  // useful if the catalogue as a whole still separates a hands-on person from
+  // an artistic one. Anything under a 0.4 spread would mean the interest term
+  // is carrying almost no information.
+  const probe = pattern => {
+    const r = scoreRiasec(RIASEC_ITEMS.map(it => pattern[it.t]))
+    const fits = FIELDS.map(f => riasecFit(r.score, f)).filter(v => v !== null)
+    return Math.max(...fits) - Math.min(...fits)
+  }
+  const cases = {
+    'hands-on': { R: 3, I: 1, A: 0, S: 0, E: 0, C: 1 },
+    'people':   { R: 0, I: 0, A: 1, S: 3, E: 1, C: 0 },
+    'artistic': { R: 0, I: 1, A: 3, S: 1, E: 0, C: 0 },
+    'commercial': { R: 0, I: 0, A: 0, S: 1, E: 3, C: 2 },
+  }
+  for (const [name, pattern] of Object.entries(cases)) {
+    const spread = probe(pattern)
+    assert(spread > 0.4, `a ${name} profile spreads only ${spread.toFixed(2)} across the catalogue`)
+  }
+})
+
 test('every field declares all six Holland types explicitly', () => {
   for (const f of FIELDS) {
     for (const t of TYPES) {

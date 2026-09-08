@@ -7,7 +7,7 @@
   <meta name="description" content="The full method behind the Self-educated knowledge profile: the instrument, the rubric, the weights, the tier table, and what it cannot do.">
   <meta name="color-scheme" content="dark light">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🔥</text></svg>">
-  <link rel="stylesheet" href="assets/styles.css?v=7">
+  <link rel="stylesheet" href="assets/styles.css?v=16">
 </head>
 <body>
   <header class="topbar">
@@ -26,13 +26,26 @@
 
     <h2>The short version</h2>
     <p>Eighteen questions measure what you like doing. Twelve measure what you have actually made.
-    A written rubric describes what each of seventeen fields asks of people entering it. Your
-    knowledge is compared against that rubric, your interests against the field's interest profile,
-    and the two are combined 55/45 in favour of knowledge. Every resulting number is reported with
+    Your interests are compared against each field's interest profile, taken from that occupation's
+    published O*NET record; your knowledge is compared against a written rubric of what the field asks
+    of people entering it, which is still our own judgement. The two are combined 55/45 in favour of
+    knowledge. Every resulting number is reported with
     the margin of error the underlying measurement supports — which is wider than most tests of this
     kind admit.</p>
 
     <h2>The interest questions</h2>
+    <p>Your six type scores are matched against each field's own interest profile, and those
+    profiles are <b>not our opinion</b>: each field names an O*NET-SOC occupation and uses that
+    occupation's published Holland code, with the first letter weighted 3, the second 2 and the third
+    1. The mapping is listed below. Writing them out this way changed all seventeen — the guesses they
+    replaced had Sales as a Social occupation, when O*NET has it as Enterprising-Conventional, and
+    Product Design as Artistic-first, when O*NET leads it Investigative.</p>
+
+    <p>Five pairs end up with identical profiles, because O*NET gives those occupations the same code
+    — Sales, Operations and Entrepreneurship are all EC. That is a real fact about the work rather
+    than a flaw to paper over, and it is why those fields are often reported as tied. What separates
+    them is the knowledge side, not the interest side.</p>
+
     <p>These are a <b>RIASEC inventory</b> — the six-type model (Realistic, Investigative, Artistic,
     Social, Enterprising, Conventional) proposed by John Holland in 1959 and used by the US
     Department of Labor's <a href="https://www.onetcenter.org/">O*NET</a> database to describe every
@@ -98,11 +111,39 @@
     are typically hired into it, across the same twelve domains, on the same scale as your own
     ratings. It is capped at 3 — "made real things other people used or paid for" — because no field
     requires that you already be the person others come to before it will let you in.</p>
-    <p><b>These numbers are an editorial judgement, not measured data.</b> They are one person's
-    reading of what these occupations ask for, published as rubric v1 so it can be argued with. The
-    version to aim at is derived from O*NET's free database downloads, joined on SOC codes, with the
-    derivation script published alongside. Until that exists, what you are reading is a stated
-    opinion, versioned so you can watch it change.</p>
+    <p><b>The entry-demand numbers are an editorial judgement, not measured data</b> — unlike the
+    interest profiles above, which are taken from O*NET. They are one person's reading of what these
+    occupations ask for across the twelve domains, published as rubric v1 so it can be argued with.
+    O*NET publishes skill and work-activity importance ratings that could ground them the same way the
+    interest side is now grounded; that has not been done. Until it is, what you are reading here is a
+    stated opinion, versioned so you can watch it change.</p>
+
+    <h3>Which occupation each field is matched to</h3>
+    <p>The interest profile for each field comes from this occupation's published O*NET record. Where
+    a field is broader than one occupation — "Entrepreneurship" against Chief Executives, say — the
+    mapping is an anchor rather than an equivalence, and it is listed so you can disagree with it.</p>
+    <div class="scroll-x"><table id="soc-table">
+      <thead><tr><th>Field</th><th>O*NET-SOC</th><th>Occupation</th><th>Holland code</th></tr></thead>
+      <tbody id="soc-rows"></tbody>
+    </table></div>
+    <script type="module">
+      import { FIELDS } from './assets/data.js?v=16'
+      const names = {
+        'software': 'Software Developers', 'data': 'Data Scientists',
+        'design': 'Web and Digital Interface Designers', 'marketing': 'Market Research Analysts',
+        'content': 'Technical Writers', 'sales': 'Sales Representatives, Wholesale & Mfg',
+        'ops': 'General and Operations Managers', 'itsupport': 'Computer User Support Specialists',
+        'security': 'Information Security Analysts', 'logistics': 'Logisticians',
+        'finance': 'Accountants and Auditors', 'trades': 'Electricians',
+        'health': 'Nursing Assistants', 'teaching': 'Training and Development Specialists',
+        'venture': 'Chief Executives', 'applied': 'Biological Technicians',
+        'media': 'Film and Video Editors',
+      }
+      document.getElementById('soc-rows').innerHTML = FIELDS.map(f => `
+        <tr><td>${f.name}</td>
+        <td><a href="https://www.onetonline.org/link/summary/${f.soc}">${f.soc}</a></td>
+        <td>${names[f.key] ?? ''}</td><td>${f.hollandCode}</td></tr>`).join('')
+    </script>
     <p>Fit is one minus a criticality-weighted shortfall: a one-level hole in a domain the field
     leans on heavily costs proportionally more than the same hole somewhere peripheral.</p>
 

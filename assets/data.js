@@ -205,7 +205,8 @@ export const FIELDS = [
   {
     key: 'software', name: 'Software Engineering',
     blurb: 'Building the systems everything else now runs on. The most credential-blind field that pays well — portfolios beat degrees here more than anywhere.',
-    riasec: { R: 1, I: 3, A: 1, S: 0, E: 0, C: 2 },
+    soc: '15-1252.00', hollandCode: 'IC',
+    riasec: { R: 0, I: 3, A: 0, S: 0, E: 0, C: 2 },
     entryDemand: { software: 3, data: 1.5, science: 0, making: 0, craft: 0, health: 0, people: 0, systems: 1, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [8, 18], aiBand: 'high',
     roles: ['Backend developer', 'Frontend developer', 'Automation engineer'],
@@ -214,7 +215,8 @@ export const FIELDS = [
   {
     key: 'data', name: 'Data & Analytics',
     blurb: 'Turning messy records into decisions. Lower entry barrier than engineering, and every organisation has the problem.',
-    riasec: { R: 0, I: 3, A: 0, S: 0, E: 1, C: 3 },
+    soc: '15-2051.00', hollandCode: 'IC',
+    riasec: { R: 0, I: 3, A: 0, S: 0, E: 0, C: 2 },
     entryDemand: { software: 1.5, data: 3, science: 0, making: 0, craft: 0, health: 0, people: 0, systems: 1, finance: 0, business: 1, marketing: 0, design: 0 },
     months: [6, 14], aiBand: 'high',
     roles: ['Data analyst', 'BI developer', 'Analytics engineer'],
@@ -223,7 +225,8 @@ export const FIELDS = [
   {
     key: 'design', name: 'Product & UX Design',
     blurb: 'Deciding how a thing should work before anyone builds it. Taste plus research — hard to automate, easy to prove with a portfolio.',
-    riasec: { R: 0, I: 2, A: 3, S: 2, E: 1, C: 1 },
+    soc: '15-1255.00', hollandCode: 'IAC',
+    riasec: { R: 0, I: 3, A: 2, S: 0, E: 0, C: 1 },
     entryDemand: { software: 1, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 1.5, systems: 0, finance: 0, business: 1, marketing: 0, design: 3 },
     months: [6, 14], aiBand: 'mid',
     roles: ['Product designer', 'UX researcher', 'Design systems lead'],
@@ -232,7 +235,8 @@ export const FIELDS = [
   {
     key: 'marketing', name: 'Marketing & Growth',
     blurb: 'Getting the right people to find and want the thing. Results are measurable, which is exactly why nobody checks your diploma.',
-    riasec: { R: 0, I: 1, A: 2, S: 1, E: 3, C: 2 },
+    soc: '13-1161.00', hollandCode: 'ECI',
+    riasec: { R: 0, I: 1, A: 0, S: 0, E: 3, C: 2 },
     entryDemand: { software: 0, data: 1.5, science: 0, making: 0, craft: 0, health: 0, people: 0, systems: 0, finance: 0, business: 1.5, marketing: 3, design: 1 },
     months: [4, 10], aiBand: 'high',
     roles: ['Growth marketer', 'Performance media buyer', 'Lifecycle & CRM'],
@@ -241,7 +245,8 @@ export const FIELDS = [
   {
     key: 'content', name: 'Writing & Communications',
     blurb: 'Making complicated things land. The fastest field to show competence in publicly — and the one software is pressing hardest, so depth matters.',
-    riasec: { R: 0, I: 2, A: 3, S: 2, E: 1, C: 1 },
+    soc: '27-3042.00', hollandCode: 'CAI',
+    riasec: { R: 0, I: 1, A: 2, S: 0, E: 0, C: 3 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 2.5, systems: 0, finance: 0, business: 1, marketing: 1.5, design: 2.5 },
     months: [3, 9], aiBand: 'high',
     roles: ['Content strategist', 'Technical writer', 'Communications lead'],
@@ -250,7 +255,8 @@ export const FIELDS = [
   {
     key: 'sales', name: 'Sales & Business Development',
     blurb: 'The field that has cared least about where you went to school. What counts is whether deals close — which makes it the fastest route from zero to real income.',
-    riasec: { R: 0, I: 0, A: 1, S: 3, E: 3, C: 1 },
+    soc: '41-4012.00', hollandCode: 'EC',
+    riasec: { R: 0, I: 0, A: 0, S: 0, E: 3, C: 2 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 2.5, systems: 1, finance: 0, business: 2.5, marketing: 2, design: 0 },
     months: [2, 6], aiBand: 'mid',
     roles: ['Account executive', 'Partnerships', 'Solutions consultant'],
@@ -259,7 +265,8 @@ export const FIELDS = [
   {
     key: 'ops', name: 'Operations & Project Management',
     blurb: 'Making an organisation actually run. Undervalued, everywhere, and learnable almost entirely on the job.',
-    riasec: { R: 1, I: 1, A: 0, S: 2, E: 2, C: 3 },
+    soc: '11-1021.00', hollandCode: 'EC',
+    riasec: { R: 0, I: 0, A: 0, S: 0, E: 3, C: 2 },
     entryDemand: { software: 0, data: 1, science: 0, making: 0, craft: 0, health: 0, people: 1, systems: 3, finance: 0, business: 2, marketing: 0, design: 0 },
     months: [4, 12], aiBand: 'mid',
     roles: ['Operations manager', 'Project manager', 'Chief of staff'],
@@ -268,7 +275,8 @@ export const FIELDS = [
   {
     key: 'itsupport', name: 'IT Support & Administration',
     blurb: 'Keeping the machines and accounts of an organisation working. The classic no-degree entry into technology, and it opens onto everything else.',
-    riasec: { R: 2, I: 2, A: 0, S: 2, E: 0, C: 3 },
+    soc: '15-1232.00', hollandCode: 'CRI',
+    riasec: { R: 2, I: 1, A: 0, S: 0, E: 0, C: 3 },
     entryDemand: { software: 1.5, data: 1, science: 0, making: 0, craft: 0, health: 0, people: 1.5, systems: 3, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [4, 12], aiBand: 'mid',
     roles: ['IT support technician', 'Systems administrator', 'Cloud operations'],
@@ -277,7 +285,8 @@ export const FIELDS = [
   {
     key: 'security', name: 'Cybersecurity',
     blurb: 'Finding what breaks before someone else does. Hiring here runs on demonstrated skill and certifications rather than degrees.',
-    riasec: { R: 1, I: 3, A: 0, S: 0, E: 1, C: 3 },
+    soc: '15-1212.00', hollandCode: 'CI',
+    riasec: { R: 0, I: 2, A: 0, S: 0, E: 0, C: 3 },
     entryDemand: { software: 2.5, data: 1.5, science: 1, making: 0, craft: 0, health: 0, people: 0, systems: 2.5, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [10, 24], aiBand: 'mid',
     roles: ['Security analyst', 'Penetration tester', 'Security operations'],
@@ -286,7 +295,8 @@ export const FIELDS = [
   {
     key: 'logistics', name: 'Logistics & Supply Chain',
     blurb: 'Moving physical things through a system without loss. Enormous, unglamorous, and full of people who started on the floor.',
-    riasec: { R: 2, I: 1, A: 0, S: 1, E: 2, C: 3 },
+    soc: '13-1081.00', hollandCode: 'CEI',
+    riasec: { R: 0, I: 1, A: 0, S: 0, E: 2, C: 3 },
     entryDemand: { software: 0, data: 1.5, science: 0, making: 0, craft: 0, health: 0, people: 0, systems: 3, finance: 1, business: 1.5, marketing: 0, design: 0 },
     months: [3, 10], aiBand: 'mid',
     roles: ['Logistics coordinator', 'Supply chain analyst', 'Warehouse operations lead'],
@@ -295,7 +305,8 @@ export const FIELDS = [
   {
     key: 'finance', name: 'Finance & Accounting',
     blurb: 'Money as a system. Parts are licence-gated, but analysis, controlling and fintech roles are wide open to the self-taught.',
-    riasec: { R: 0, I: 2, A: 0, S: 0, E: 2, C: 3 },
+    soc: '13-2011.00', hollandCode: 'CEI',
+    riasec: { R: 0, I: 1, A: 0, S: 0, E: 2, C: 3 },
     entryDemand: { software: 0, data: 2, science: 0, making: 0, craft: 0, health: 0, people: 0, systems: 1.5, finance: 3, business: 1, marketing: 0, design: 0 },
     months: [6, 18], aiBand: 'mid',
     roles: ['Financial analyst', 'Controller', 'Fintech operations'],
@@ -304,7 +315,8 @@ export const FIELDS = [
   {
     key: 'trades', name: 'Skilled Trades',
     blurb: 'Electrical, HVAC, plumbing, solar. Formal apprenticeship in most countries, very little of it automatable, and demand that is not going anywhere.',
-    riasec: { R: 3, I: 1, A: 0, S: 0, E: 1, C: 2 },
+    soc: '47-2111.00', hollandCode: 'RC',
+    riasec: { R: 3, I: 0, A: 0, S: 0, E: 0, C: 2 },
     entryDemand: { software: 0, data: 0, science: 0, making: 2.5, craft: 3, health: 0, people: 0, systems: 1, finance: 0, business: 1, marketing: 0, design: 0 },
     months: [12, 36], aiBand: 'low',
     roles: ['Electrician', 'HVAC / heat pump technician', 'Solar installer'],
@@ -313,7 +325,8 @@ export const FIELDS = [
   {
     key: 'health', name: 'Health & Care Work',
     blurb: 'Largely licence-gated, but the licences are vocational rather than academic — this is a real route without a university degree.',
-    riasec: { R: 2, I: 1, A: 0, S: 3, E: 0, C: 2 },
+    soc: '31-1131.00', hollandCode: 'SRC',
+    riasec: { R: 2, I: 0, A: 0, S: 3, E: 0, C: 1 },
     entryDemand: { software: 0, data: 0, science: 1, making: 0, craft: 0, health: 3, people: 2.5, systems: 1, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [12, 30], aiBand: 'low',
     roles: ['Care specialist', 'Rehabilitation / physio assistant', 'Health coach'],
@@ -322,7 +335,8 @@ export const FIELDS = [
   {
     key: 'teaching', name: 'Teaching & Training',
     blurb: 'Public schooling needs certification; corporate training, online education and coaching do not. Your own learning story is the credential.',
-    riasec: { R: 0, I: 1, A: 2, S: 3, E: 2, C: 1 },
+    soc: '13-1151.00', hollandCode: 'SI',
+    riasec: { R: 0, I: 2, A: 0, S: 3, E: 0, C: 0 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 3, systems: 0, finance: 0, business: 1, marketing: 1, design: 1.5 },
     months: [3, 12], aiBand: 'mid',
     roles: ['Corporate trainer', 'Instructional designer', 'Coach / course creator'],
@@ -331,7 +345,8 @@ export const FIELDS = [
   {
     key: 'venture', name: 'Entrepreneurship & Small Business',
     blurb: 'The field where nobody grants you anything — you take it. Highest variance, and the one that most rewards a broad rather than deep profile.',
-    riasec: { R: 1, I: 1, A: 2, S: 1, E: 3, C: 1 },
+    soc: '11-1011.00', hollandCode: 'EC',
+    riasec: { R: 0, I: 0, A: 0, S: 0, E: 3, C: 2 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 1, systems: 1.5, finance: 1.5, business: 3, marketing: 2.5, design: 0 },
     months: [6, 36], aiBand: 'mid',
     roles: ['Founder', 'Owner-operator', 'Freelance / agency'],
@@ -340,7 +355,8 @@ export const FIELDS = [
   {
     key: 'applied', name: 'Applied Science & Lab Work',
     blurb: 'Technician and applied-research roles. This is the hardest field on the list to enter without formal study — most labs still ask for a qualification at the door.',
-    riasec: { R: 3, I: 3, A: 0, S: 0, E: 0, C: 2 },
+    soc: '19-4021.00', hollandCode: 'CRI',
+    riasec: { R: 2, I: 1, A: 0, S: 0, E: 0, C: 3 },
     entryDemand: { software: 0, data: 1.5, science: 3, making: 1.5, craft: 0, health: 0, people: 0, systems: 1, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [12, 36], aiBand: 'mid',
     roles: ['Lab technician', 'Quality / materials tech', 'Field research assistant'],
@@ -349,7 +365,8 @@ export const FIELDS = [
   {
     key: 'media', name: 'Media Production',
     blurb: 'Craft you can prove in ten seconds of a showreel. The tools have collapsed in price; taste and reliability are what still sell.',
-    riasec: { R: 2, I: 1, A: 3, S: 1, E: 2, C: 1 },
+    soc: '27-4032.00', hollandCode: 'AC',
+    riasec: { R: 0, I: 0, A: 3, S: 0, E: 0, C: 2 },
     entryDemand: { software: 0, data: 0, science: 0, making: 1.5, craft: 0, health: 0, people: 0, systems: 0, finance: 0, business: 1, marketing: 1.5, design: 3 },
     months: [4, 14], aiBand: 'mid',
     roles: ['Video editor', 'Producer', 'Audio / podcast engineer'],

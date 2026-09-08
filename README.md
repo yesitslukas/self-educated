@@ -21,9 +21,9 @@ plain ES modules, which means it must be served over HTTP rather than opened as 
 node tests/run.mjs && node tests/views.mjs
 ```
 
-Two suites, 69 tests, no dependencies.
+Two suites, 71 tests, no dependencies.
 
-`run.mjs` — 43 invariant tests over the scoring engine. They assert properties, not
+`run.mjs` — 45 invariant tests over the scoring engine. They assert properties, not
 pinned numbers, so they survive a re-weighting of the model, which is the point. A
 block marked `REGRESSIONS` pins the specific defects found in the v1 audit; each of
 those fails against the code as it was before.
@@ -88,6 +88,23 @@ against `--bg` and `--surface`, in both themes. Three tier badges were once
 hardcoded hex outside the theme blocks and sat at 1.47:1 in light mode. If you
 change a colour, compute the ratio again.
 
+## Where the field data comes from
+
+Each field cites an O*NET-SOC occupation and carries that occupation's published
+Holland code; the interest vector is that code, weighted 3 / 2 / 1 for first,
+second and third. `method.html` renders the full mapping with links to the source
+records, and a test fails if a vector and its citation ever drift apart.
+
+Writing them out changed **all seventeen**. The guesses they replaced had Sales as
+a Social occupation (O*NET: Enterprising-Conventional) and Product Design as
+Artistic-first (O*NET leads it Investigative). Five pairs end up sharing a code —
+Sales, Operations and Entrepreneurship are all EC — which is a real fact about the
+work, not a flaw to paper over. Those fields are separated by the knowledge side
+and are often correctly reported as tied.
+
+The `entryDemand` vectors and `months` ranges are **not** grounded this way. They
+remain one person's judgement, and the method page says so in those words.
+
 ## What the scoring does, and why
 
 The full version is on the method page. The short version, because these are the
@@ -129,11 +146,11 @@ decisions most likely to be undone by accident:
 - [ ] **Add operator identity** to the privacy line and the footer before the form
       goes live — a name and a contact address. Storing an email address without
       saying who is storing it is not GDPR-compliant.
-- [ ] **Replace the field rubric with derived data.** The `entryDemand` vectors and
-      the `months` ranges are an editorial judgement, labelled as such on the method
-      page and versioned as `RUBRIC_VERSION`. The honest version comes from
-      [O*NET's free downloads](https://www.onetcenter.org/database.html) joined on
-      SOC codes, with the derivation script committed alongside.
+- [ ] **Ground the `entryDemand` vectors.** The interest half of the match is now
+      derived from O*NET (see below); the twelve-domain entry bars and the `months`
+      ranges are still editorial judgement, labelled as such on the method page and
+      versioned as `RUBRIC_VERSION`. O*NET publishes skill and work-activity
+      importance ratings that could ground them the same way.
 - [ ] **`aiBand` is a three-way editorial judgement**, deliberately not a percentage,
       because nobody has measured what share of these occupations current AI performs.
       Do not turn it back into a number without a citation.
