@@ -138,7 +138,7 @@ export const RIASEC_TYPES = {
    rewritten to ask only about the activity. */
 export const RIASEC_ITEMS = [
   { t: 'R', q: 'Repairing something mechanical or electrical yourself rather than replacing it' },
-  { t: 'I', q: 'Spending an evening working out how something functions under the hood' },
+  { t: 'I', q: 'Spending an evening working out how something actually works inside' },
   { t: 'A', q: 'Making something where taste and judgement matter more than being correct' },
   { t: 'S', q: 'Sitting with someone and helping them work through a problem of theirs' },
   { t: 'E', q: 'Convincing a room to back an idea that is yours' },
@@ -161,7 +161,7 @@ export const RIASEC_ITEMS = [
 
 export const RIASEC_SCALE = [
   { v: 0, label: 'Dislike' },
-  { v: 1, label: 'Slightly' },
+  { v: 1, label: 'Slightly like' },
   { v: 2, label: 'Like' },
   { v: 3, label: 'Strongly like' },
 ]

@@ -88,7 +88,15 @@ const steps = [
     render: () => views.renderLevels(state),
     valid: () => Object.values(state.levels).every(v => v !== null),
   },
-  { id: 'evidence', render: () => views.renderEvidence(state), valid: () => true },
+  {
+    id: 'evidence',
+    render: () => views.renderEvidence(state),
+    valid: () => true,
+    // A step with nothing to ask is not a step. The person who reaches this
+    // with nothing to evidence is the thin-profile respondent — the one least
+    // in need of another screen telling them there is nothing here.
+    skip: () => !DOMAINS.some(d => (state.levels[d.key] ?? 0) >= 2),
+  },
   { id: 'results', render: () => views.renderResults(state.results), valid: () => true },
 ]
 
@@ -155,6 +163,12 @@ function compute () {
       ? stability(prior, { levels: state.levels, topFields: fields.map(f => f.key), flame }, Date.now())
       : null,
   }
+
+  // Keep the finished run in this browser whether or not an address was
+  // given. Retest stability is browser-local either way, and gating the write
+  // on the capture endpoint meant the comparison never ran for anyone. The
+  // results page states plainly that this is kept and how to remove it.
+  writeStored(buildPayload(null, state, state.results, new Date().toISOString()))
 }
 
 
@@ -237,9 +251,10 @@ function navHtml (step) {
 /* ---------------------------------------------------------------- */
 
 function go (delta, viaHistory) {
-  const next = state.step + delta
-  if (next < 0 || next >= steps.length) return
   if (delta > 0 && !steps[state.step].valid()) return
+  let next = state.step + delta
+  while (steps[next]?.skip?.()) next += delta
+  if (next < 0 || next >= steps.length) return
   state.step = next
   if (!viaHistory) {
     try { history.pushState({ step: next }, '', `#${steps[next].id}`) } catch {}

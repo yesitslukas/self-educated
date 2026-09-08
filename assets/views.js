@@ -51,7 +51,7 @@ export function renderIntro () {
   return `
     <section class="screen intro">
       <p class="eyebrow">Free · about 7 minutes · no account</p>
-      <h1>Nobody wrote down what you learned.<br><span class="glow">This does.</span></h1>
+      <h1 tabindex="-1">Nobody wrote down what you learned. <br><span class="glow">This does.</span></h1>
       <p class="lede">
         This maps what you actually know across twelve domains, finds the fields your
         knowledge and interests already point at, and shows the distance between where
@@ -487,14 +487,17 @@ function renderFooterBlock (r) {
           <button class="btn btn-primary" type="submit">Save my profile</button>
         </form>
         <p class="capture-note" id="capture-note" role="status"></p>
-        <p class="privacy">Stored: your email address and the answers behind this chart. Nothing else,
-        nothing shared or sold, no tracking scripts, no analytics, no cookies.</p>
+        <p class="privacy">Kept in this browser: the answers behind this chart, so a retake can be
+        compared with this one. Sent to us: the same answers plus your email address, and only when you
+        submit the form above. Nothing else, nothing shared or sold, no tracking scripts, no analytics,
+        no cookies.</p>
       ` : `
         <h3>Take this with you</h3>
-        <p class="sub">Your answers stay inside this browser tab and go nowhere else — no account, no
-        database, no mailing list behind this page. Close the tab and the profile is gone. Download the
-        chart if you want to keep it. When there is a version where someone other than you checks the
-        evidence, this page will say so.</p>
+        <p class="sub">Nothing here is sent anywhere — no account, no database, no mailing list behind
+        this page. Your answers are kept in this browser only, so that if you take this again the page
+        can tell you how much of your profile survived the gap. Clearing this site's data, or pressing
+        Start over, removes them. Download the chart if you want a copy that outlives the browser. When
+        there is a version where someone other than you checks the evidence, this page will say so.</p>
       `}
       <div class="secondary-actions">
         <button class="btn btn-ghost" data-action="download">Download the chart</button>

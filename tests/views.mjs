@@ -266,8 +266,13 @@ test('with no capture endpoint the page does not ask for an email', () => {
   const html = views.renderResults(buildResults(SCENARIOS['typical self-taught developer']))
   assert(!html.includes('id="capture"'), 'no form may be shown while there is nowhere to send it')
   assert(!html.includes('type="email"'), 'no address may be collected while there is nowhere to store it')
-  // Match on a phrase that cannot straddle a line break in the template.
-  assert(html.includes('go nowhere else'), 'the page must say where the answers actually go')
+  // Match on phrases that cannot straddle a line break in the template.
+  assert(html.includes('Nothing here is sent anywhere'), 'the page must say nothing is transmitted')
+  // The run is now written to localStorage on completion so a retake can be
+  // compared. A page that keeps something and does not say so is exactly the
+  // defect the absolute-storage ban above exists to prevent.
+  assert(html.includes('kept in this browser only'), 'the page must disclose what it keeps')
+  assert(html.includes('removes them'), 'the page must say how to remove what it keeps')
 })
 
 test('the chart is present in every results variant and carries its provenance', () => {
