@@ -21,21 +21,26 @@ plain ES modules, which means it must be served over HTTP rather than opened as 
 node tests/run.mjs && node tests/views.mjs
 ```
 
-Two suites, 64 tests, no dependencies.
+Two suites, 69 tests, no dependencies.
 
-`run.mjs` — 41 invariant tests over the scoring engine. They assert properties, not
+`run.mjs` — 43 invariant tests over the scoring engine. They assert properties, not
 pinned numbers, so they survive a re-weighting of the model, which is the point. A
 block marked `REGRESSIONS` pins the specific defects found in the v1 audit; each of
 those fails against the code as it was before.
 
-`views.mjs` — 23 render tests. `views.js` is pure `(state) → HTML`, so every screen
+`views.mjs` — 26 render tests. `views.js` is pure `(state) → HTML`, so every screen
 the product can show is rendered in Node and checked for `undefined`, `NaN`,
 unresolved templates, unbalanced tags, and the invariants that must survive any
 copy edit: the disclaimer is on every results variant, no unevidenced claim shows a
 Torch or Beacon badge, no protected title ever reaches the page, and no email is
 requested while there is nowhere to send it. It covers ten profile shapes a browser
 walkthrough would rarely reach by accident — the empty profile, the flat responder,
-the maximal unevidenced profile, contradictory answers.
+the maximal unevidenced profile, contradictory answers, and the blank state that
+"Start over" leaves behind, which used to throw a TypeError one press of Back
+later. Two of the checks are structural rather than about any one screen: the
+page may never make an absolute storage claim (it once said "Nothing here is
+stored anywhere" while writing every answer to sessionStorage), and `method.html`
+may not quote tier wording that no longer exists in `data.js`.
 
 ## Files
 
@@ -66,11 +71,22 @@ failure.
 
 ## Design rules
 
-Three tokens systems in `styles.css`, and nothing should sit outside them: a 1.25
-modular type scale (`--t-xs` … `--t-4xl`), a 4px spacing grid (`--s-1` … `--s-20`),
-and eight colour tokens per theme. Contrast of `--muted` and `--accent` against both
-`--bg` and `--surface` was measured against WCAG AA in light and dark; if you change
-a colour, measure it again rather than eyeballing it.
+Three token systems in `styles.css`, and nothing should sit outside them: a 1.25
+modular type scale (`--t-xs` … `--t-4xl`, plus interpolated `--t-sm` and `--t-md`
+where the scale's own gaps are too wide for UI), a 4px spacing grid (`--s-1` …
+`--s-20`), and fourteen colour tokens per theme.
+
+Two rules that are easy to undo by accident:
+
+**Nothing a person is asked to read sits below `--t-base`.** 14px and below is for
+UI chrome — counters, badges, metadata. An earlier version set forty of its
+fifty-two font sizes at 14px or smaller, and that single fact was what made the
+page look like a form rather than a document.
+
+**Colours are measured, not eyeballed.** `--muted`, `--accent` and `--display`
+against `--bg` and `--surface`, in both themes. Three tier badges were once
+hardcoded hex outside the theme blocks and sat at 1.47:1 in light mode. If you
+change a colour, compute the ratio again.
 
 ## What the scoring does, and why
 
@@ -92,8 +108,16 @@ decisions most likely to be undone by accident:
   on what you said you enjoyed, in an instrument whose own screens promise levels are
   behavioural. Contradictions between sections are now shown to the user instead.
 - **Every number carries its margin**, computed by perturbing each input by its own
-  standard error and combining the movements in quadrature. Two fields closer than
-  the combined error are reported as tied rather than ranked.
+  standard error and combining the movements in quadrature. The swing takes the
+  LARGER of the two directions, not the average: `domainFit` is a hinge, so above
+  the demand the upward perturbation moves nothing at all, and averaging that
+  structural zero against real movement halves the estimate instead of removing
+  the bias.
+- **Ties are propagated through the difference, not combined as if independent.**
+  Two fit scores are functions of the same twelve ratings and six interest scores,
+  so `Math.hypot(a.se, b.se)` is the wrong formula. The tied set is also taken as
+  the contiguous run from the top, because a pairwise test is not transitive and
+  "these are tied for first" cannot skip the field ranked between them.
 
 ## Before this is shared widely
 
