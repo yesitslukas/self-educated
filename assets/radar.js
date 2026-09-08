@@ -33,6 +33,16 @@ const R = 196
 const MAX = 4
 const RINGS = [1, 2, 3, 4]
 
+/* A viewBox of the full 640x712 canvas wastes horizontal margin, and on a
+   phone the SVG is scaled to the column width, so every wasted unit shrinks
+   the type. Cropping to the drawing's real extent buys that back.
+
+   The bound is set by the axis labels at their LARGEST rendered size — the
+   page raises them to 20px under 720px wide — not at the 15px default.
+   Measured there: content runs x 26.6 to 597.5. Anything tighter clips
+   "Business" on the left. */
+const VB = { x: 18, y: 2, w: 590, h: 704 }
+
 /* Area-proportional: r ∝ √value. */
 const radius = value => Math.sqrt(Math.max(0, value) / MAX) * R
 
@@ -47,7 +57,7 @@ const poly = read =>
 
 function grid () {
   const rings = RINGS.map(v =>
-    `<polygon class="rd-ring" points="${poly(() => v)}"/>`).join('')
+    `<polygon class="rd-ring${v === MAX ? ' rd-outer' : ''}" points="${poly(() => v)}"/>`).join('')
 
   const spokes = DOMAINS.map((d, i) => {
     const [x, y] = pt(i, MAX)
@@ -88,10 +98,17 @@ export function renderRadar (you, demand, fieldName, dateISO) {
       return `<circle class="rd-demand-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3"/>`
     }).join('')}` : ''
 
+  // A domain at zero sits exactly at the centre, so plotting its dot stacks
+  // every zero on one pixel — with eight of them the middle becomes a knot
+  // that reads as a rendering fault rather than as eight honest zeros. Mark
+  // the origin once instead.
   const youLayer = `
     <polygon class="rd-you" points="${poly(d => you[d.key] ?? 0)}"/>
+    <circle class="rd-zero" cx="${CX}" cy="${CY}" r="4.5"/>
     ${DOMAINS.map((d, i) => {
-      const [x, y] = pt(i, you[d.key] ?? 0)
+      const v = you[d.key] ?? 0
+      if (v <= 0) return ''
+      const [x, y] = pt(i, v)
       return `<circle class="rd-you-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.4"/>`
     }).join('')}`
 
@@ -113,13 +130,13 @@ export function renderRadar (you, demand, fieldName, dateISO) {
       <text class="rd-stamp" x="${CX}" y="${H - 22}" text-anchor="middle">Self-reported and unverified · yesitslukas.github.io/self-educated</text>
     </g>`
 
-  return `<svg class="radar" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+  return `<svg class="radar" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" role="img"
       aria-label="Knowledge profile across twelve domains${fieldName ? `, compared with what ${fieldName} asks for` : ''}">
     <text class="rd-title" x="${CX}" y="34" text-anchor="middle">${fieldName ? `Your profile against ${fieldName}` : 'Your knowledge profile'}</text>
     <text class="rd-sub" x="${CX}" y="56" text-anchor="middle">Twelve domains, rated 0 to 4 by what you have done</text>
     ${grid()}
-    ${demandLayer}
     ${youLayer}
+    ${demandLayer}
     ${labels()}
     ${legend}
     ${stamp}
@@ -131,16 +148,17 @@ export function renderRadar (you, demand, fieldName, dateISO) {
    from :root, the exporter passes one reading the same computed values so
    the PNG cannot drift from the screen. */
 export const radarCss = v => `
-.rd-ring, .rd-spoke { fill: none; stroke: ${v('--line')}; }
+.rd-ring, .rd-spoke { fill: none; stroke: ${v('--line-2')}; }
 .rd-ring { stroke-width: 1; }
-.rd-spoke { stroke-width: 1; }
-.rd-tick { fill: ${v('--muted')}; font: 11px ${v('--font')}; }
-.rd-label { fill: ${v('--text')}; font: 600 13px ${v('--font')}; letter-spacing: .01em; }
-.rd-title { fill: ${v('--text')}; font: 600 19px ${v('--font')}; letter-spacing: -.01em; }
-.rd-sub, .rd-key { fill: ${v('--muted')}; font: 12.5px ${v('--font')}; }
-.rd-stamp { fill: ${v('--muted')}; font: 11px ${v('--font')}; }
-.rd-demand { fill: none; stroke: ${v('--demand')}; stroke-width: 1.75; stroke-dasharray: 5 4; }
+.rd-ring.rd-outer { stroke: ${v('--muted')}; stroke-opacity: .55; stroke-width: 1.25; }
+.rd-spoke { stroke-width: 1; stroke-opacity: .7; }
+.rd-tick { fill: ${v('--muted')}; font: 12px ${v('--font')}; }
+.rd-label { fill: ${v('--text')}; font: 600 15px ${v('--font')}; letter-spacing: .01em; }
+.rd-title { fill: ${v('--text')}; font: 600 21px ${v('--font')}; letter-spacing: -.012em; }
+.rd-sub, .rd-key { fill: ${v('--muted')}; font: 13.5px ${v('--font')}; }
+.rd-stamp { fill: ${v('--muted')}; font: 12px ${v('--font')}; }
+.rd-demand { fill: none; stroke: ${v('--demand')}; stroke-width: 2; stroke-dasharray: 6 4; }
 .rd-demand-dot { fill: ${v('--demand')}; }
-.rd-you { fill: ${v('--accent')}; fill-opacity: .22; stroke: ${v('--accent')}; stroke-width: 2; stroke-linejoin: round; }
-.rd-you-dot { fill: ${v('--accent')}; }
+.rd-you { fill: ${v('--accent')}; fill-opacity: ${v('--you-fill')}; stroke: ${v('--accent')}; stroke-width: 2.25; stroke-linejoin: round; }
+.rd-you-dot, .rd-zero { fill: ${v('--accent')}; }
 `

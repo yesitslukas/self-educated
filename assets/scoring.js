@@ -223,11 +223,13 @@ function fitError (userScore, userSe, domains, field, interestUsable) {
   const base = fitOf(userScore, domains, field, interestUsable)
   let sumSq = 0
 
-  // Symmetric. A one-sided bump understates the error badly wherever the
-  // response is flat in one direction — someone who already clears a demand
-  // sees no change from perturbing upward, which would report near-perfect
-  // precision for what is still a self-rating.
-  const swing = (lo, hi) => (Math.abs(hi - base) + Math.abs(lo - base)) / 2
+  // The response surface is one-sided by construction: domainFit is a hinge
+  // (Math.max(0, d - u)), so above the demand the upward perturbation moves
+  // nothing at all, and the ratings clamp at 0 and 4. AVERAGING that structural
+  // zero against the real movement does not remove the bias, it halves it.
+  // Take the larger of the two, so a direction that cannot move contributes
+  // nothing rather than dragging the estimate down.
+  const swing = (lo, hi) => Math.max(Math.abs(hi - base), Math.abs(lo - base))
 
   if (interestUsable) {
     for (const t of TYPES) {
@@ -295,13 +297,50 @@ export function scoreFields (riasec, domains, ikigai) {
 }
 
 /* Which fields are statistically indistinguishable from the top one.
-   Two fields separated by less than the combined error of the two
-   measurements are not ranked — they are tied, and the page must say so
-   rather than presenting an arbitrary winner as an answer. */
-export function tiedWithTop (fields) {
-  if (!fields.length) return []
+
+   Both fit scores are functions of the SAME twelve ratings and six interest
+   scores, so their errors are strongly correlated, and Math.hypot(a.se, b.se)
+   — the combination for two INDEPENDENT estimates — is the wrong formula.
+   Perturb each shared input once and watch how far the DIFFERENCE moves. */
+function diffError (riasec, domains, a, b, interestUsable) {
+  const u = riasec.score ?? riasec
+  const se = riasec.se ?? {}
+  const gap = (uu, dd) => fitOf(uu, dd, a, interestUsable) - fitOf(uu, dd, b, interestUsable)
+  const base = gap(u, domains)
+  const swing = (lo, hi) => Math.max(Math.abs(hi - base), Math.abs(lo - base))
+
+  let sumSq = 0
+  if (interestUsable) {
+    for (const t of TYPES) {
+      const sd = se[t] ?? SEM_FLOOR
+      sumSq += swing(gap({ ...u, [t]: Math.max(0, (u[t] ?? 0) - sd) }, domains),
+                     gap({ ...u, [t]: Math.min(1, (u[t] ?? 0) + sd) }, domains)) ** 2
+    }
+  }
+  for (const k of DOMAIN_KEYS) {
+    if ((a.entryDemand[k] ?? 0) <= 0 && (b.entryDemand[k] ?? 0) <= 0) continue
+    sumSq += swing(gap(u, { ...domains, [k]: Math.max(0, (domains[k] ?? 0) - SE_LEVEL) }),
+                   gap(u, { ...domains, [k]: Math.min(4, (domains[k] ?? 0) + SE_LEVEL) })) ** 2
+  }
+  return Math.sqrt(sumSq)
+}
+
+export function tiedWithTop (fields, riasec, domains) {
+  if (!fields.length || !riasec || !domains) return []
   const top = fields[0]
-  return fields.filter(f => f !== top && top.score - f.score < Math.hypot(top.se, f.se))
+
+  // Take the contiguous run from the top, not every field that happens to pass
+  // the pairwise test. The test is not transitive — a field unlike the leader
+  // can have a large difference-error and slip through from far down the list —
+  // and "these three are tied for first" is indefensible if it skips the field
+  // ranked between them.
+  const tied = []
+  for (let i = 1; i < fields.length; i++) {
+    const f = fields[i]
+    if (top.score - f.score >= diffError(riasec, domains, top, f, top.interestUsable)) break
+    tied.push(f)
+  }
+  return tied
 }
 
 /* ------------------------------------------------------------------
@@ -380,7 +419,7 @@ export function flameError (domains, evidence = new Set()) {
   for (const k of DOMAIN_KEYS) {
     const up = flameIndex({ ...domains, [k]: Math.min(4, (domains[k] ?? 0) + SE_LEVEL) }, evidence)
     const down = flameIndex({ ...domains, [k]: Math.max(0, (domains[k] ?? 0) - SE_LEVEL) }, evidence)
-    sumSq += ((Math.abs(up - base) + Math.abs(down - base)) / 2) ** 2
+    sumSq += Math.max(Math.abs(up - base), Math.abs(down - base)) ** 2
   }
   return Math.round(Math.sqrt(sumSq))
 }
@@ -497,7 +536,7 @@ export function ikigaiRead (ikigai) {
   } else if (overlap.length >= 1) {
     verdict = 'Some of what you enjoy is also what people come to you for. The rest, nobody has ever watched you do. That untested part is where the next few months are worth spending — not because it is a passion, but because you do not yet know whether you are any good at it.'
   } else {
-    verdict = 'Nothing you chose as enjoyable is also something people come to you for. There are two ways that happens: the thing you enjoy has never been done anywhere anyone could see it, or the thing you are good at was chosen for you by a job. Only you know which, and it changes what to do next.'
+    verdict = 'Nothing you chose as enjoyable is also something people come to you for. There are at least three ways that happens: the thing you enjoy has never been done anywhere anyone could see it, the thing you are good at was chosen for you by a job, or these twelve tiles are too coarse to name what you actually do. Only you know which, and it changes what to do next.'
   }
 
   return { overlap: overlap.map(labelOf), verdict, count: overlap.length }

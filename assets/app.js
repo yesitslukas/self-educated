@@ -51,6 +51,7 @@ let state = blankState()
 const root = document.getElementById('app')
 const bar = document.getElementById('progress-bar')
 const count = document.getElementById('progress-count')
+const live = document.getElementById('live')
 
 /* ---------------------------------------------------------------- */
 /* Steps                                                             */
@@ -65,14 +66,14 @@ const steps = [
   { id: 'intro', render: () => views.renderIntro(), valid: () => true },
   {
     id: 'loves',
-    render: () => views.renderPicker(state, 'loves', 'What do you lose time in?',
-      'Not what you are paid for. What you look up from and an hour has gone. Up to five.'),
+    render: () => views.renderPicker(state, 'loves', 'What do you lose track of time doing?',
+      'Not what you are paid for. The thing you start, then look up and an hour is gone. Pick up to five.'),
     valid: () => state.loves.length > 0,
   },
   {
     id: 'goodAt',
     render: () => views.renderPicker(state, 'goodAt', 'What do people come to you for?',
-      'The thing others ask you about, even informally. Be accurate rather than modest. Up to five.'),
+      'The thing others ask you about, even informally. Be accurate rather than modest. Pick up to five.'),
     valid: () => state.goodAt.length > 0,
   },
   { id: 'cause', render: () => views.renderCause(state), valid: () => !!state.cause },
@@ -108,7 +109,7 @@ function compute () {
   }
 
   const fields = scoreFields(riasec, domains, ikigai)
-  const tied = tiedWithTop(fields)
+  const tied = tiedWithTop(fields, riasec, domains)
   const flame = flameIndex(domains, state.evidence)
 
   // The tier is the product's actual output, so it is computed here and
@@ -162,6 +163,7 @@ function compute () {
 /* ---------------------------------------------------------------- */
 
 let lastStep = -1
+let announced = -1
 
 function render () {
   const step = steps[state.step]
@@ -177,7 +179,12 @@ function render () {
   const chromeless = step.id === 'results' || step.id === 'intro'
   root.innerHTML = step.render() + (chromeless ? '' : navHtml(step))
 
-  if (focusKey) {
+  // Restore focus only WITHIN a step. Across a step change the matching
+  // dataset belongs to a different question, and the new Continue is disabled
+  // and cannot take focus — which is how a keyboard user landed on
+  // document.body once per screen.
+  const sameStep = state.step === lastStep
+  if (sameStep && focusKey) {
     const match = [...root.querySelectorAll('button')]
       .find(el => JSON.stringify({ ...el.dataset }) === focusKey)
     match?.focus({ preventScroll: true })
@@ -189,7 +196,7 @@ function render () {
   if (state.step !== lastStep) {
     lastStep = state.step
     window.scrollTo({ top: 0, behavior: 'instant' })
-    if (!focusKey) root.querySelector('h1, h2')?.focus?.({ preventScroll: true })
+    root.querySelector('h1, h2')?.focus?.({ preventScroll: true })
   }
 
   const progress = state.step / (steps.length - 1)
@@ -197,6 +204,15 @@ function render () {
   count.textContent = state.step === 0 ? ''
     : state.step === RESULTS_STEP ? 'Done'
     : `Step ${state.step} of ${steps.length - 2}`
+
+  // Announce the step, not the screen. The whole of #app used to be a polite
+  // live region, so every one of the ~44 answers re-queued all sixty controls.
+  if (state.step !== announced) {
+    announced = state.step
+    live.textContent = state.step === RESULTS_STEP
+      ? 'Your results are ready.'
+      : `${root.querySelector('h1, h2')?.textContent ?? ''}. ${count.textContent}`
+  }
 
   if (step.id === 'results' && captureEnabled) {
     document.getElementById('capture')?.addEventListener('submit', onCapture)
@@ -210,7 +226,7 @@ function navHtml (step) {
   return `
     <nav class="nav">
       <button class="btn btn-ghost" data-action="back">Back</button>
-      <button class="btn btn-primary" data-action="next" ${ok ? '' : 'disabled'}>
+      <button class="btn btn-primary" data-action="next" aria-disabled="${!ok}">
         ${next?.id === 'results' ? 'See my profile' : 'Continue'}
       </button>
     </nav>`
@@ -231,9 +247,20 @@ function go (delta, viaHistory) {
   render()
 }
 
+/* History can point at a step the current answers no longer support — most
+   obviously after "Start over", whose pushState leaves the finished run's
+   entries behind it on the stack, so one press of Back lands compute() on an
+   empty questionnaire. go() guards forward moves with valid(); popstate skips
+   that guard, so clamp it to the first step that is not yet answered. */
+const furthestValid = () => {
+  for (let i = 0; i < steps.length; i++) if (!steps[i].valid()) return i
+  return steps.length - 1
+}
+
 window.addEventListener('popstate', e => {
   const step = e.state?.step
-  state.step = typeof step === 'number' && step < steps.length ? step : 0
+  const want = Number.isInteger(step) && step >= 0 && step < steps.length ? step : 0
+  state.step = Math.min(want, furthestValid())
   render()
 })
 
@@ -256,9 +283,27 @@ root.addEventListener('click', e => {
 
   const d = el.dataset
 
+  // A disabled button explains nothing on a 2,166px screen. Keep it
+  // focusable, and on a premature press take the reader to the answer that
+  // is actually missing.
+  if (d.action === 'next' && !steps[state.step].valid()) {
+    const missing = root.querySelector('[data-missing]')
+    if (missing) {
+      missing.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      missing.querySelector('button')?.focus({ preventScroll: true })
+    }
+    return
+  }
   if (d.action === 'next') return go(1)
   if (d.action === 'back') return go(-1)
   if (d.action === 'restart') return restart()
+  if (d.action === 'rest-none') {
+    // "Nothing" is the floor of the scale, so this can only ever lower a
+    // profile — it cannot be used to inflate one.
+    for (const dm of DOMAINS) if (state.levels[dm.key] === null) state.levels[dm.key] = 0
+    dirty()
+    return render()
+  }
   if (d.action === 'download') {
     return downloadChart(root.querySelector('svg.radar'), (msg, ok) => {
       const note = document.getElementById('export-note')
@@ -313,6 +358,24 @@ root.addEventListener('click', e => {
   }
 })
 
+/* role="radiogroup" is a contract: one tab stop for the group, arrows to move
+   within it. Sixty separately-tabbable radios is not a radiogroup, it is sixty
+   buttons wearing the wrong role — and crossing the levels screen by keyboard
+   took sixty presses of Tab. */
+root.addEventListener('keydown', e => {
+  const el = e.target.closest('[role="radio"]')
+  if (!el) return
+  const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+  if (!dir) return
+  e.preventDefault()
+  const group = el.closest('[role="radiogroup"]')
+  if (!group) return
+  const radios = [...group.querySelectorAll('[role="radio"]')]
+  const next = radios[(radios.indexOf(el) + dir + radios.length) % radios.length]
+  next?.focus({ preventScroll: true })
+  next?.click()
+})
+
 function restart () {
   state = blankState()
   lastStep = -1
@@ -348,14 +411,14 @@ function clearSession () {
 function rehydrate () {
   let saved
   try { saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null') } catch { return }
-  if (!saved || typeof saved.step !== 'number') return
+  if (!saved || !Number.isInteger(saved.step) || saved.step < 0) return
   // Validate rather than trust: a stale shape from an older deploy must not
   // brick the page.
   try {
     state = {
       ...blankState(),
       ...saved,
-      step: Math.min(saved.step, steps.length - 1),
+      step: Math.min(Math.max(0, saved.step), steps.length - 1),
       riasec: Array.isArray(saved.riasec) && saved.riasec.length === RIASEC_ITEMS.length
         ? saved.riasec : Array(RIASEC_ITEMS.length).fill(null),
       levels: { ...Object.fromEntries(DOMAINS.map(d => [d.key, null])), ...(saved.levels || {}) },
@@ -364,6 +427,13 @@ function rehydrate () {
       results: null,
     }
   } catch { state = blankState() }
+
+  // A step restored from an older deploy can point past answers this build no
+  // longer has — a changed RIASEC_ITEMS length resets that whole section.
+  // Walk back to the first step that is not satisfied.
+  for (let i = 0; i <= state.step; i++) {
+    if (!steps[i].valid()) { state.step = i; break }
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -387,11 +457,11 @@ async function onCapture (e) {
   btn.disabled = false
 
   if (ok && confirmed) {
-    note.textContent = 'Saved. You will hear from us once, when checked assessments open.'
+    note.textContent = 'Saved. You will hear from us once — when there is a version where someone else checks the evidence.'
     note.className = 'capture-note is-ok'
     e.target.reset()
   } else if (ok) {
-    note.textContent = 'Sent, but this browser would not let us read the confirmation. If you do not hear anything, write to us.'
+    note.textContent = 'Sent, but this browser would not let us read the confirmation. If you hear nothing, open an issue on the repository linked in the footer.'
     note.className = 'capture-note is-warn'
   } else {
     note.textContent = localSaved

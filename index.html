@@ -10,7 +10,7 @@
   <meta property="og:description" content="A degree records where you studied. This records what you have built — and what is still missing. Free, seven minutes, no account.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🔥</text></svg>">
-  <link rel="stylesheet" href="assets/styles.css?v=9">
+  <link rel="stylesheet" href="assets/styles.css?v=14">
 </head>
 <body>
   <a class="skip" href="#app">Skip to the assessment</a>
@@ -22,10 +22,10 @@
     </svg>
     <span class="wordmark">Self-educated <span>— knowledge profile</span></span>
     <span id="progress-count"></span>
+    <div class="progress"><div id="progress-bar"></div></div>
   </header>
-  <div class="progress"><div id="progress-bar"></div></div>
-
-  <main id="app" aria-live="polite"></main>
+  <main id="app"></main>
+  <p id="live" class="sr-only" role="status" aria-live="polite"></p>
 
   <footer class="site">
     <div class="inner">
@@ -44,16 +44,16 @@
   <script type="importmap">
   {
     "imports": {
-      "./assets/app.js": "./assets/app.js?v=9",
-      "./assets/views.js": "./assets/views.js?v=9",
-      "./assets/data.js": "./assets/data.js?v=9",
-      "./assets/scoring.js": "./assets/scoring.js?v=9",
-      "./assets/radar.js": "./assets/radar.js?v=9",
-      "./assets/capture.js": "./assets/capture.js?v=9",
-      "./assets/export-png.js": "./assets/export-png.js?v=9"
+      "./assets/app.js": "./assets/app.js?v=14",
+      "./assets/views.js": "./assets/views.js?v=14",
+      "./assets/data.js": "./assets/data.js?v=14",
+      "./assets/scoring.js": "./assets/scoring.js?v=14",
+      "./assets/radar.js": "./assets/radar.js?v=14",
+      "./assets/capture.js": "./assets/capture.js?v=14",
+      "./assets/export-png.js": "./assets/export-png.js?v=14"
     }
   }
   </script>
-  <script type="module" src="./assets/app.js?v=9"></script>
+  <script type="module" src="./assets/app.js?v=14"></script>
 </body>
 </html>

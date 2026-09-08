@@ -64,9 +64,9 @@ export const TIERS = [
     blurb: 'You have practised. Small things work when you make them.' },
   { key: 'flame',    name: 'Flame',    kind: 'Professional knowledge', equiv: 'The professional grounding three to four years of full-time study is meant to produce.',
     blurb: 'You have shipped real work that survived contact with reality.' },
-  { key: 'torch',    name: 'Torch',    kind: 'Specialist knowledge',   equiv: 'The depth a further specialist year after that is meant to produce.',
+  { key: 'torch',    name: 'Torch',    kind: 'Specialist knowledge',   equiv: 'The depth a further, specialist year of study is meant to produce.',
     blurb: 'Others rely on your judgement here. You solve the non-obvious cases.' },
-  { key: 'beacon',   name: 'Beacon',   kind: 'Original knowledge',     equiv: 'Past the point a course of study takes anyone.',
+  { key: 'beacon',   name: 'Beacon',   kind: 'Original knowledge',     equiv: 'Beyond what a taught course sets out to produce.',
     blurb: 'You produce knowledge rather than consume it, and you teach it forward.' },
 ]
 
@@ -249,7 +249,7 @@ export const FIELDS = [
   },
   {
     key: 'sales', name: 'Sales & Business Development',
-    blurb: 'The one field that has never cared where you went to school, only whether you close. Fastest route from zero to real income.',
+    blurb: 'The field that has cared least about where you went to school. What counts is whether deals close — which makes it the fastest route from zero to real income.',
     riasec: { R: 0, I: 0, A: 1, S: 3, E: 3, C: 1 },
     entryDemand: { software: 0, data: 0, science: 0, making: 0, craft: 0, health: 0, people: 2.5, systems: 1, finance: 0, business: 2.5, marketing: 2, design: 0 },
     months: [2, 6], aiBand: 'mid',
@@ -339,7 +339,7 @@ export const FIELDS = [
   },
   {
     key: 'applied', name: 'Applied Science & Lab Work',
-    blurb: 'Technician and applied-research roles. The hardest of these to enter without formal study — be honest with yourself about that.',
+    blurb: 'Technician and applied-research roles. This is the hardest field on the list to enter without formal study — most labs still ask for a qualification at the door.',
     riasec: { R: 3, I: 3, A: 0, S: 0, E: 0, C: 2 },
     entryDemand: { software: 0, data: 1.5, science: 3, making: 1.5, craft: 0, health: 0, people: 0, systems: 1, finance: 0, business: 0, marketing: 0, design: 0 },
     months: [12, 36], aiBand: 'mid',
@@ -348,7 +348,7 @@ export const FIELDS = [
   },
   {
     key: 'media', name: 'Media Production',
-    blurb: 'Craft you can prove in ten seconds of showreel. Tooling is collapsing in price; taste and reliability are what still sell.',
+    blurb: 'Craft you can prove in ten seconds of a showreel. The tools have collapsed in price; taste and reliability are what still sell.',
     riasec: { R: 2, I: 1, A: 3, S: 1, E: 2, C: 1 },
     entryDemand: { software: 0, data: 0, science: 0, making: 1.5, craft: 0, health: 0, people: 0, systems: 0, finance: 0, business: 1, marketing: 1.5, design: 3 },
     months: [4, 14], aiBand: 'mid',

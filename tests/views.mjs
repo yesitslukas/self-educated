@@ -14,7 +14,7 @@
  *
  * Run: node tests/views.mjs
  */
-import { DOMAINS, RIASEC_ITEMS, MONEY_MODES, RUBRIC_VERSION } from '../assets/data.js'
+import { DOMAINS, RIASEC_ITEMS, MONEY_MODES, RUBRIC_VERSION, TIERS } from '../assets/data.js'
 import {
   scoreRiasec, scoreDomains, scoreFields, flameIndex, flameError, tierFor,
   ikigaiRead, interestQuality, consistencyFlags, tiedWithTop,
@@ -46,7 +46,7 @@ function buildResults (state) {
     moneyHorizon: MONEY_HORIZON[state.money] ?? 18,
   }
   const fields = scoreFields(riasec, domains, ikigai)
-  const tied = tiedWithTop(fields)
+  const tied = tiedWithTop(fields, riasec, domains)
   const flame = flameIndex(domains, state.evidence)
   const ranked = Object.entries(riasec.score)
     .filter(([, v]) => v !== null)
@@ -185,6 +185,10 @@ const SCENARIOS = {
   'maximal, no evidence at all': stateOf({ levels: Object.fromEntries(KEYS.map(k => [k, 4])) }),
   'flat interest responder': stateOf({ riasec: RIASEC_ITEMS.map(() => 3), levels: { craft: 3, making: 2 }, evidence: ['craft'] }),
   'unanswered interests': stateOf({ riasec: RIASEC_ITEMS.map(() => null), levels: { health: 3 }, evidence: ['health'] }),
+  // The exact state "Start over" leaves behind. Reaching the results screen
+  // from here — one press of browser Back — used to throw a TypeError in
+  // renderThin, because topTypes is empty and nothing guarded the lookup.
+  'nothing answered at all': stateOf({ riasec: RIASEC_ITEMS.map(() => null), loves: [], goodAt: [], cause: '', money: '', levels: {} }),
   'contradictory answers': stateOf({ goodAt: ['teach'], levels: { people: 0, software: 3 }, evidence: ['software'] }),
   'urgent runway': stateOf({ money: 'urgent', levels: { craft: 3, making: 3 }, evidence: ['craft', 'making'] }),
   'no cause chosen': stateOf({ cause: '', levels: { design: 3 }, evidence: ['design'] }),
@@ -196,6 +200,15 @@ for (const [name, state] of Object.entries(SCENARIOS)) {
     clean(views.renderResults(r), `results (${name})`)
   })
 }
+
+test('the blank state left by "Start over" renders instead of throwing', () => {
+  const r = buildResults(SCENARIOS['nothing answered at all'])
+  assert(r.topTypes.length === 0, 'an unanswered interest section yields no ranked types')
+  const html = views.renderResults(r)
+  clean(html, 'results (nothing answered)')
+  assert(html.includes('did not spread far enough'),
+    'with no interest answers the page must say so, not name a strongest type')
+})
 
 test('a profile with nothing practised gets the thin result, not a confident recommendation', () => {
   const r = buildResults(SCENARIOS['empty profile'])
@@ -218,8 +231,8 @@ test('the flat responder is told their interest answers carry no information', (
   const r = buildResults(SCENARIOS['flat interest responder'])
   assert(r.quality.verdict === 'flat', 'an all-identical interest profile must be flagged flat')
   const html = views.renderResults(r)
-  assert(html.includes('did not separate'), 'the page must say the interest answers were unusable')
-  assert(html.includes('not usable'), 'each card must mark the interest meter as unusable')
+  assert(html.includes('did not spread far enough'), 'the page must say the interest answers were unusable')
+  assert(html.includes('no usable answer pattern'), 'each card must mark the interest meter as unusable')
 })
 
 test('the contradiction between sections is surfaced on the page', () => {
@@ -271,6 +284,27 @@ test('no results variant leaks a protected title', () => {
     const html = views.renderResults(buildResults(state))
     const hit = html.match(/\b(bachelor|master's|magister|diplom|meister)\b/i)
     assert(!hit, `${name} printed a protected title: "${hit?.[0]}"`)
+  }
+})
+
+/* ---------------------------------------------------------------- */
+/* The method page is a promise                                      */
+/* ---------------------------------------------------------------- */
+
+test('method.html quotes tier wording that still exists in data.js', async () => {
+  // method.html quotes the product's own tier text to explain the legal
+  // hedge. When a tier's wording changed, that quotation silently went stale
+  // — the same class of defect as a stale claim about the scoring, in the one
+  // document whose whole job is to be trusted.
+  const { readFileSync } = await import('node:fs')
+  const html = readFileSync(new URL('../method.html', import.meta.url), 'utf8')
+  const quoted = [...html.matchAll(/"([^"]{40,})"/g)].map(m => m[1].replace(/\s+/g, ' ').trim())
+  const tierText = TIERS.map(t => `${t.kind} ${t.equiv} ${t.blurb}`).join(' ').replace(/\s+/g, ' ')
+  for (const q of quoted) {
+    // Only check quotations that look like tier wording.
+    if (!/is meant to produce|sets out to produce/.test(q)) continue
+    assert(tierText.includes(q.replace(/\.$/, '')),
+      `method.html quotes "${q}" but no tier says that any more`)
   }
 })
 

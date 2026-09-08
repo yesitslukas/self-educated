@@ -3,14 +3,17 @@
 
    Design system, such as it is:
 
-   TYPE     A 1.25 modular scale from a 16px base. Every font-size in
-            this file is one of --t-xs … --t-4xl. No ad-hoc sizes.
-   SPACE    A 4px grid. Every padding, margin and gap is one of
-            --s-1 … --s-12. No ad-hoc values.
-   COLOUR   Eight tokens per theme. Contrast of --muted against both
-            --bg and --surface is above 4.5:1 in light and dark, so
-            secondary text meets WCAG AA rather than merely looking
-            calm.
+   TYPE     A 1.25 modular scale from a 16px base (--t-xs, --t-base,
+            --t-lg, --t-xl, --t-2xl, --t-3xl, --t-4xl), plus two
+            interpolated steps --t-sm (14) and --t-md (18) where the
+            scale's own gaps are too wide for UI. Every font-size in
+            this file is one of the nine. Nothing a person is asked to
+            READ sits below --t-base; 14px and below is for UI chrome.
+   SPACE    A 4px grid, --s-1 … --s-20. Every padding, margin and gap
+            is one of them.
+   COLOUR   Fourteen tokens per theme: eight structural, six semantic.
+            Contrast of --muted, --accent and --display against --bg
+            and --surface was measured against WCAG AA in both themes.
    MOTION   Only where it communicates state, and switched off entirely
             under prefers-reduced-motion.
    ================================================================== */
@@ -34,7 +37,7 @@
 
   --radius:    10px;
   --radius-lg: 14px;
-  --measure:   66ch;
+  --measure:   36rem;  /* ~72 characters at 16px, one right edge at every size */
   --maxw:      760px;
 
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, system-ui, sans-serif;
@@ -49,6 +52,11 @@
   --muted:     #9a9088;  /* 6.3:1 on --bg, 6.0:1 on --surface — measured */
   --accent:    #e0912f;  /* 7.7:1 on --bg */
   --accent-2:  #f5b955;
+  --display:   #f5b955;  /* stays warm in BOTH themes, unlike --accent-2 */
+  --you-fill:  0.22;
+  --tier-kindling: #d0913f;
+  --tier-torch:    #ef8f4a;
+  --tier-beacon:   #e8c65f;
   --on-accent: #150f07;
   --demand:    #7aa8e6;
   --ok:        #6cc088;
@@ -67,6 +75,11 @@
     --muted:     #6d645a;  /* 5.4:1 on --bg */
     --accent:    #9e5c0a;  /* 5.0:1 on --bg — measured, AA for text */
     --accent-2:  #7d4808;
+    --display:   #b8620c;  /* 4.1:1 on --bg and on --text */
+    --you-fill:  0.34;     /* the same 22% reads as paper on a cream ground */
+    --tier-kindling: #8a5a12;
+    --tier-torch:    #a4451a;
+    --tier-beacon:   #7a5a05;
     --on-accent: #fffaf3;
     --demand:    #2f62ab;
     --ok:        #256b3c;
@@ -97,6 +110,11 @@ body {
 }
 :focus:not(:focus-visible) { outline: none; }
 
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
 .skip {
   position: fixed; left: var(--s-2); top: var(--s-2); z-index: 40;
   padding: var(--s-3) var(--s-4); border-radius: var(--radius);
@@ -113,7 +131,8 @@ body {
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: var(--s-3);
-  padding: var(--s-3) var(--s-5);
+  padding: 0 max(var(--s-5), calc((100% - var(--maxw)) / 2));
+  min-height: 48px;
   background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -128,8 +147,10 @@ body {
 
 /* Sticky, directly under the topbar — a progress bar that scrolls out of
    view at step two is not a progress bar. */
+/* Inside the header, so it cannot be offset by a guess at the header's
+   height — which broke the moment the wordmark wrapped on a narrow phone. */
 .progress {
-  position: sticky; top: 45px; z-index: 20;
+  position: absolute; left: 0; right: 0; bottom: -1px;
   height: 3px; background: var(--line);
 }
 #progress-bar {
@@ -164,11 +185,15 @@ h2 {
   line-height: 1.18; letter-spacing: -0.022em; font-weight: 640;
   margin: 0 0 var(--s-3); max-width: 26ch;
 }
-h3 { font-size: var(--t-md); letter-spacing: -0.012em; margin: 0 0 var(--s-3); font-weight: 640; }
-h4 { font-size: var(--t-base); margin: 0; font-weight: 640; letter-spacing: -0.008em; }
+h3 {
+  font-size: clamp(var(--t-md), 2.6vw, var(--t-xl));
+  line-height: 1.24; letter-spacing: -0.018em; font-weight: 640;
+  margin: 0 0 var(--s-4); max-width: 24ch; text-wrap: balance;
+}
+h4 { font-size: var(--t-lg); line-height: 1.28; letter-spacing: -0.014em; margin: 0; font-weight: 640; }
 h1:focus, h2:focus { outline: none; }
 
-.glow { color: var(--accent-2); }
+.glow { color: var(--display); }
 .eyebrow {
   font-size: var(--t-xs); letter-spacing: .1em; text-transform: uppercase;
   color: var(--muted); margin: 0 0 var(--s-2); font-weight: 500;
@@ -176,13 +201,36 @@ h1:focus, h2:focus { outline: none; }
 .lede { font-size: var(--t-md); max-width: var(--measure); margin: 0 0 var(--s-5); }
 .sub { color: var(--muted); max-width: var(--measure); margin: 0 0 var(--s-5); font-size: var(--t-sm); }
 .read { max-width: var(--measure); margin: 0 0 var(--s-3); }
-.caption { color: var(--muted); font-size: var(--t-sm); max-width: var(--measure); margin: 0 0 var(--s-6); }
+.caption { color: var(--muted); font-size: var(--t-base); max-width: var(--measure); margin: 0 0 var(--s-6); }
+
+/* Reading sizes. 14px is a UI size; prose is set at the base step.
+   This was the single largest thing making the page look like a form
+   rather than a document. */
+.sub, .field-blurb, .flame-def, .disclaimer, .cause-note, .warn-note, .risk,
+.q-text, .gap-name, .tier-dom, .tier-meaning, .fit-parts li, .meta,
+.row-opt, .pick, .lvl-name, .promise li, .method summary, .method-body p {
+  font-size: var(--t-base);
+}
+/* Genuinely secondary metadata stays a step down. */
+.eyebrow, .counter, .privacy, .capture-note, .export-note,
+.tier-meaning i, .gap-num, .ev-flag, .chip, .scale-btn, .lvl-btn,
+.rank, .wordmark, #progress-count, footer.site {
+  font-size: var(--t-sm);
+}
+.eyebrow, .gap-num, .ev-flag, #progress-count, footer.site { font-size: var(--t-xs); }
+.lede, .read, .sub, .caption, .field-blurb, .flame-def { text-wrap: pretty; }
 
 .claim {
   font-size: var(--t-md); font-weight: 560; letter-spacing: -0.012em;
   margin: var(--s-6) 0 0; padding-left: var(--s-4);
   border-left: 2px solid var(--accent); max-width: 46ch;
 }
+
+.start-row {
+  display: flex; align-items: center; gap: var(--s-4);
+  flex-wrap: wrap; margin: var(--s-6) 0 var(--s-8);
+}
+.start-note { color: var(--muted); font-size: var(--t-sm); max-width: 30ch; }
 
 .promise { list-style: none; padding: 0; margin: var(--s-6) 0; display: grid; gap: var(--s-3); }
 .promise li { padding-left: var(--s-5); position: relative; color: var(--muted); max-width: var(--measure); font-size: var(--t-sm); }
@@ -224,14 +272,21 @@ h1:focus, h2:focus { outline: none; }
 }
 .btn-primary { background: var(--accent); color: var(--on-accent); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-2); }
-.btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+.btn-primary:disabled,
+.btn-primary[aria-disabled="true"] { opacity: .35; cursor: not-allowed; }
 .btn-ghost { background: transparent; color: var(--muted); border-color: var(--line-2); }
 .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
 .btn-lg { padding: var(--s-4) var(--s-8); font-size: var(--t-md); }
 
+/* Sticky, because Continue otherwise sits up to 1,120px below the last
+   answer: on the levels screen the button was at y=1,928 of a 2,166px page.
+   The results screen is chromeless, so it grows no bar. */
 .nav {
+  position: sticky; bottom: 0; z-index: 15;
   max-width: var(--maxw); margin: var(--s-8) auto 0;
   display: flex; justify-content: space-between; gap: var(--s-3);
+  padding: var(--s-3) 0 calc(var(--s-3) + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--bg) 62%, transparent);
 }
 
 .grid-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--s-2); }
@@ -281,12 +336,21 @@ h1:focus, h2:focus { outline: none; }
 .scale-btn:hover, .lvl-btn:hover { color: var(--text); }
 .scale-btn.is-on, .lvl-btn.is-on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 
+.lvl-key {
+  list-style: none; margin: 0 0 var(--s-4); padding: var(--s-4);
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); display: grid; gap: var(--s-2);
+  font-size: var(--t-sm); color: var(--muted); max-width: var(--measure);
+}
+.lvl-key b { color: var(--text); font-weight: 600; }
+
 .levels { display: grid; gap: var(--s-2); }
 .lvl {
   display: grid; grid-template-columns: 1fr minmax(320px, 400px); gap: var(--s-4); align-items: center;
   padding: var(--s-3) var(--s-5); border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--line);
 }
-.lvl-name { font-weight: 520; font-size: var(--t-sm); }
+.lvl-name { font-weight: 520; }
+.lvl[data-missing], .q[data-missing] { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .lvl-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--s-1); }
 
 /* ---------------------------------------------------------------- */
@@ -304,7 +368,7 @@ h1:focus, h2:focus { outline: none; }
 }
 .flame-num {
   font-size: var(--t-3xl); font-weight: 680; letter-spacing: -0.035em; line-height: 1;
-  color: var(--accent-2); font-variant-numeric: tabular-nums;
+  color: var(--display); font-variant-numeric: tabular-nums;
 }
 .flame-lbl { font-size: var(--t-xs); color: var(--muted); margin-top: var(--s-1); font-variant-numeric: tabular-nums; }
 .headline-txt { flex: 1 1 300px; }
@@ -341,9 +405,13 @@ h1:focus, h2:focus { outline: none; }
 .fit-parts li { display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-sm); }
 .fit-parts li span:first-child { color: var(--muted); flex: 1 1 auto; }
 .fit-parts .na { color: var(--warn); font-size: var(--t-xs); flex: none; }
-.meter { display: inline-flex; gap: 3px; flex: none; }
-.meter i { width: 20px; height: 7px; border-radius: 2px; background: var(--surface-2); }
-.meter i.on { background: var(--accent); }
+.meter { display: inline-flex; gap: var(--s-1); flex: none; }
+.meter i {
+  width: 22px; height: 8px; border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.meter i.on { background: var(--accent); box-shadow: none; }
 
 .meta { display: grid; gap: var(--s-2); margin: 0; font-size: var(--t-sm); }
 .meta > div { display: flex; gap: var(--s-3); flex-wrap: wrap; }
@@ -370,10 +438,10 @@ h1:focus, h2:focus { outline: none; }
   padding: 3px 0; border-radius: 999px; border: 1px solid;
 }
 .t-spark    { color: var(--muted); border-color: var(--line-2); }
-.t-kindling { color: #d0913f; border-color: color-mix(in srgb, #d0913f 55%, transparent); }
+.t-kindling { color: var(--tier-kindling); border-color: color-mix(in srgb, var(--tier-kindling) 55%, transparent); }
 .t-flame    { color: var(--accent-2); border-color: var(--accent); }
-.t-torch    { color: #ef8f4a; border-color: #ef8f4a; background: color-mix(in srgb, #ef8f4a 12%, transparent); }
-.t-beacon   { color: #e8c65f; border-color: #e8c65f; background: color-mix(in srgb, #e8c65f 14%, transparent); }
+.t-torch    { color: var(--tier-torch); border-color: var(--tier-torch); background: color-mix(in srgb, var(--tier-torch) 12%, transparent); }
+.t-beacon   { color: var(--tier-beacon); border-color: var(--tier-beacon); background: color-mix(in srgb, var(--tier-beacon) 14%, transparent); }
 
 .disclaimer {
   font-size: var(--t-sm); color: var(--muted); max-width: var(--measure);
@@ -441,11 +509,26 @@ h1:focus, h2:focus { outline: none; }
   .tier-badge { justify-self: start; padding: 3px var(--s-4); }
   .gap-num { text-align: left; grid-auto-flow: column; justify-content: start; gap: var(--s-2); }
   .scale { grid-template-columns: repeat(2, 1fr); }
-  .meta > div { flex-direction: column; gap: 2px; }
+  /* Rotating the flex axis turns flex-basis into a HEIGHT: every dd was
+     260px tall on a phone, adding ~2,600px of dead space to the page. */
+  .meta > div { flex-direction: column; gap: var(--s-1); }
   .meta dt { min-width: 0; }
+  .meta dd { flex: 0 0 auto; }
   .fit-parts li { flex-wrap: wrap; }
   .headline { gap: var(--s-4); }
   main { padding: 0 var(--s-4) var(--s-16); }
+}
+
+/* The chart scales to the column, so on a phone every SVG user unit is worth
+   about 0.6 device pixels and a 15px label lands near 9px. These sizes apply
+   to the page only — the PNG export is rendered at 1240px wide and uses the
+   sizes in radarCss unchanged. */
+@media (max-width: 720px) {
+  .radar .rd-label { font-size: 20px; }
+  .radar .rd-title { font-size: 27px; }
+  .radar .rd-sub, .radar .rd-key { font-size: 18px; }
+  .radar .rd-tick { font-size: 16px; }
+  .radar .rd-stamp { font-size: 15px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

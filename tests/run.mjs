@@ -425,15 +425,27 @@ test('interestQuality survives empty input', () => {
   finite(q.F, 'F on empty input')
 })
 
-test('tiedWithTop reports near-ties instead of pretending to rank them', () => {
+test('tiedWithTop reports near-ties as a contiguous run from the top', () => {
+  // The old assertion restated the implementation, so it could not fail. What
+  // actually matters is that the tied set is a prefix of the ranking: a field
+  // cannot be indistinguishable from the leader while a better-scoring field
+  // in between is distinguishable from it.
   for (let i = 0; i < 40; i++) {
     const r = run(randomProfile())
-    const tied = tiedWithTop(r.fields)
-    for (const t of tied) {
-      assert(t !== r.fields[0], 'the top field cannot be tied with itself')
-      assert(r.fields[0].score - t.score < Math.hypot(r.fields[0].se, t.se), 'a field outside the margin was reported as tied')
-    }
+    const tied = tiedWithTop(r.fields, r.riasec, r.domains)
+    assert(!tied.includes(r.fields[0]), 'the top field cannot be tied with itself')
+    const indices = tied.map(t => r.fields.indexOf(t))
+    indices.forEach((idx, n) => {
+      assert(idx === n + 1,
+        `tied set is not contiguous from the top: got index ${idx} at position ${n + 1}`)
+    })
   }
+})
+
+test('tiedWithTop returns nothing when it cannot see the shared inputs', () => {
+  const r = run(randomProfile())
+  assert(tiedWithTop(r.fields).length === 0, 'without the inputs there is no error to propagate')
+  assert(tiedWithTop([], r.riasec, r.domains).length === 0, 'an empty ranking has no ties')
 })
 
 /* ---------------------------------------------------------------- */

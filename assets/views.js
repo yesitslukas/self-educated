@@ -39,7 +39,7 @@ const COUNT_WORD = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five' }
 
 const AI_WORDS = {
   high: 'Software already drafts much of the routine output here',
-  mid: 'Software does parts of it — the judgement and the relationship work, not yet',
+  mid: 'Software handles parts of it. The judgement and the client relationships, not yet',
   low: 'Little of it can be automated — physical, licensed, or done in person',
 }
 
@@ -58,9 +58,14 @@ export function renderIntro () {
         you are and where those fields start hiring.
       </p>
       <p class="claim">A degree records where you studied. This records what you have built — and what is still missing.</p>
+      <p class="start-row">
+        <button class="btn btn-primary btn-lg" data-action="next">Start</button>
+        <span class="start-note">Eighteen questions about what you enjoy, twelve about what you have
+        built. No account, no email.</span>
+      </p>
       <ul class="promise">
-        <li><b>It asks what you made, not how you feel.</b> Every question is about work that exists — something you built, shipped, or were paid for.</li>
-        <li><b>Unproven claims do not count.</b> If you cannot point at something a stranger could look at, the level below is the one that stands.</li>
+        <li><b>It asks what you made, not how you feel.</b> The twelve knowledge questions are about work that exists — something you built, shipped, or were paid for.</li>
+        <li><b>An unproven claim drops a level.</b> If you cannot point at something a stranger could look at, the level below is the one that stands.</li>
         <li><b>It tells you when it does not know.</b> Two fields too close to call are reported as a tie, not dressed up as a winner.</li>
       </ul>
 
@@ -84,7 +89,6 @@ export function renderIntro () {
         </div>
       </details>
 
-      <button class="btn btn-primary btn-lg" data-action="next">Start</button>
     </section>`
 }
 
@@ -156,7 +160,7 @@ export function renderRiasec (state, pages, page) {
         ${RIASEC_ITEMS.slice(from, to).map((item, n) => {
           const idx = from + n
           return `
-          <div class="q">
+          <div class="q"${state.riasec[idx] === null ? ' data-missing' : ''}>
             <p class="q-text" id="q${idx}">${item.q}</p>
             <div class="scale" role="radiogroup" aria-labelledby="q${idx}">
               ${RIASEC_SCALE.map(s => `
@@ -178,19 +182,25 @@ export function renderLevels (state) {
       <p class="sub">Twelve domains. Most people are honestly at nothing in most of them — that is the
       normal shape of a profile, not a failure. Answer for what you have <i>made</i>, not what you have
       an opinion about.</p>
+      <ol class="lvl-key">
+        ${LEVEL_SCALE.map(s => `<li><b>${s.short}</b> — ${esc(s.label)}</li>`).join('')}
+      </ol>
       <div class="levels">
         ${DOMAINS.map(d => `
-          <div class="lvl">
+          <div class="lvl"${state.levels[d.key] === null ? ' data-missing' : ''}>
             <span class="lvl-name" id="lvl-${d.key}">${d.label}</span>
             <div class="lvl-scale" role="radiogroup" aria-labelledby="lvl-${d.key}">
               ${LEVEL_SCALE.map(s => `
                 <button class="lvl-btn${state.levels[d.key] === s.v ? ' is-on' : ''}" role="radio"
                         aria-checked="${state.levels[d.key] === s.v}"
-                        data-level="${d.key}" data-val="${s.v}" title="${esc(s.label)}">${s.short}</button>`).join('')}
+                        data-level="${d.key}" data-val="${s.v}"
+                        aria-label="${esc(d.label)}: ${esc(s.label)}">${s.short}</button>`).join('')}
             </div>
           </div>`).join('')}
       </div>
       <p class="counter">${answered} of ${DOMAINS.length} answered</p>
+      ${answered && answered < DOMAINS.length ? `
+        <button class="btn btn-ghost" data-action="rest-none">Set the remaining ${DOMAINS.length - answered} to “Nothing”</button>` : ''}
     </section>`
 }
 
@@ -199,10 +209,10 @@ export function renderEvidence (state) {
   if (!claimed.length) {
     return `
       <section class="screen">
-        <h2 tabindex="-1">Nothing to verify yet</h2>
-        <p class="sub">You have not claimed a level that needs proof, so nothing here gets capped.
-        The first move is to make one small thing a stranger could look at: practised, plus something
-        to point at, is Kindling.</p>
+        <h2 tabindex="-1">Nothing here needs proof yet</h2>
+        <p class="sub">You have not claimed a level that evidence would change, so nothing gets held
+        back. The first move is to make one small thing a stranger could look at: practise a domain,
+        have something to point at, and that domain reaches Kindling.</p>
       </section>`
   }
   return `
@@ -250,12 +260,12 @@ function fieldCard (f, rank, tied) {
       <ul class="fit-parts">
         <li><span>Knowledge you already have</span>${meter(f.parts.knowledge, 'Knowledge you already have')}</li>
         <li><span>Interest match</span>${f.parts.interest === null
-            ? '<span class="na">not usable — see below</span>'
+            ? '<span class="na">no usable answer pattern</span>'
             : meter(f.parts.interest, 'Interest match')}</li>
         <li><span>Fits your timeline</span>${meter(f.parts.feasibility, 'Fits your timeline')}</li>
       </ul>
       <dl class="meta">
-        <div><dt>Typical ramp</dt><dd>${f.months[0]}–${f.months[1]} months of focused work before people report first paid work</dd></div>
+        <div><dt>Time to first paid work</dt><dd>${f.months[0]}–${f.months[1]} months of focused work, going by what people commonly report</dd></div>
         <div><dt>Example roles</dt><dd>${f.roles.join(' · ')}</dd></div>
         <div><dt>Automation pressure</dt><dd><span class="ai-badge ai-${f.aiBand}">${AI_WORDS[f.aiBand]}</span></dd></div>
       </dl>
@@ -277,16 +287,19 @@ function renderThin (r) {
       </p>
 
       <div class="chart-wrap">${renderRadar({}, r.fields[0].entryDemand, r.fields[0].name, r.date)}</div>
-      <p class="caption">The dashed outline is what ${r.fields[0].name} asks of people entering it.
-      Yours is empty. That picture is the honest one, and it is also the whole task.</p>
+      <p class="caption">The dashed outline is what <b>${r.fields[0].name}</b> asks of people entering
+      it. It is here because it is the closest match to your <i>interests</i> — with nothing practised
+      yet, interest is the only thing there is to match on, so treat it as a starting point rather than
+      a recommendation. Your own line sits at the centre for now.</p>
 
       <div class="block">
         <h3>What you are drawn to</h3>
         <p class="read">${r.ikigai.verdict}</p>
-        ${r.quality.verdict === 'flat' ? `
-          <p class="warn-note">Your interest answers were all the same, so they carry no information
-          about which direction suits you. Retaking that section and answering honestly across the
-          range would change this page completely.</p>` : `
+        ${r.quality.verdict === 'flat' || !r.fields[0].interestUsable || !r.topTypes.length ? `
+          <p class="warn-note">Your interest answers did not spread far enough apart to point in a
+          direction — the six types came out within a hair of each other, so naming a "strongest" one
+          would be reading noise. Retaking that section and using the whole range, including "Dislike",
+          would change this page completely.</p>` : `
           <p class="sub">Your strongest interest types: ${r.topTypes.map(t =>
             `<b>${esc(RIASEC_TYPES[t].split('—')[0].trim())}</b>`).join(' and ')}
             — ${esc(RIASEC_TYPES[r.topTypes[0]].split('—')[1].trim())}.</p>`}
@@ -323,13 +336,22 @@ export function renderResults (r) {
       <div class="headline">
         <div class="flame">
           <span class="flame-num">${r.flame}</span>
-          <span class="flame-lbl">±${Math.max(1, r.flameSe)}</span>
+          <span class="flame-lbl">of 100 · ±${Math.max(1, r.flameSe)}</span>
         </div>
         <div class="headline-txt">
           <p class="headline-lead">${tiedNames.length
-            ? `${COUNT_WORD[tiedNames.length + 1] ?? tiedNames.length + 1} fields come out level:
-               ${prose([top.name, ...tiedNames])}. The gaps between them are smaller than this test's
-               own margin of error, so it does not rank them.`
+            ? (() => {
+                // The tied set can run to every field in the catalogue for a broad
+                // profile. Name three and count the rest, or the headline becomes a
+                // list nobody reads.
+                const all = [top.name, ...tiedNames]
+                const shown = all.slice(0, 3)
+                const rest = all.length - shown.length
+                return `${COUNT_WORD[all.length] ?? all.length} fields come out level:
+                  ${prose(shown)}${rest ? `, and ${rest} more` : ''}. The gaps between them are smaller
+                  than this test's own margin of error, so it does not rank them — treat the top of the
+                  list as one answer with several names, not as an order.`
+              })()
             : `Your profile is deepest in <b>${placed[0].label}</b>, and points most clearly at
                <b>${top.name}</b>.`}</p>
           <p class="flame-def">The number is your <b>depth score</b>: your deepest domains, weighted so
@@ -341,9 +363,13 @@ export function renderResults (r) {
       <div class="chart-wrap">${renderRadar(r.domains, top.entryDemand, top.name, r.date)}</div>
 
       ${r.quality.verdict === 'flat' || !top.interestUsable ? `
-        <p class="warn-note"><b>Your interest answers did not separate.</b> You gave the same response to
-        every item, so there is no pattern to match against a field. The ranking below is running on
-        knowledge alone. Retaking that section would change these results substantially.</p>` : ''}
+        <p class="warn-note"><b>Your interest answers did not spread far enough to point anywhere.</b>
+        ${r.quality.verdict === 'flat'
+          ? 'You gave the identical response to all eighteen items'
+          : 'Your six interest types came out within about a tenth of a point of each other'}, which is
+        less separation than this test needs to tell them apart. The ranking below is running on
+        knowledge alone. Retaking that section and using the whole range — including "Dislike" — would
+        change these results substantially.</p>` : ''}
 
       ${r.flags.length ? `
       <div class="block flags">
@@ -351,8 +377,9 @@ export function renderResults (r) {
         ${r.flags.map(f => `
           <p class="read">You chose <b>${esc(f.claimed.toLowerCase())}</b> as something people come to you
           for, but rated <b>${f.label}</b> at "${esc(LEVEL_SCALE[f.rated].label.toLowerCase())}". Both can be
-          true — the skill may sit in a domain this list does not name. If it does not, the rating is the
-          one worth changing, because the rest of this page is built on those twelve numbers.</p>`).join('')}
+          true — the skill may belong to a domain this list does not name. If it does belong here, the
+          rating is the one worth changing, because the rest of this page is built on those twelve
+          numbers.</p>`).join('')}
         <p class="sub">Nothing was adjusted for this. It is shown rather than averaged away, so you can
         decide which of the two answers to trust.</p>
       </div>` : ''}
@@ -394,11 +421,11 @@ export function renderResults (r) {
         </div>
         <p class="sub">Spark → Kindling → Flame → Torch → Beacon. Above Spark, every tier is capped by
         whether you said something exists that a stranger could check — so these badges describe work you
-        can point at, not confidence you feel. They are self-reported. The next version will let you name
-        that evidence, so a reader can check it instead of taking your word for it.</p>
+        can point at, not confidence you feel. They are self-reported: put the link next to the badge and a
+        reader can judge the work instead of taking your word for it.</p>
         <p class="disclaimer">These five tiers describe knowledge. They are not academic qualifications,
-        they are not awarded by an accredited institution, and they do not entitle anyone to a protected
-        title. Where a tier names a stretch of study, it describes what that study is designed to
+        nothing here is awarded, granted or certified by anyone, and no tier entitles anyone to a
+        protected title. Where a tier names a stretch of study, it describes what that study is designed to
         produce — not something you hold.</p>
       </div>
 
@@ -454,7 +481,7 @@ function renderFooterBlock (r) {
         <h3>Where should this go?</h3>
         <p class="sub">Your answers stay inside this browser tab until you send them — close the tab and
         the profile is gone. Leave an address and it is stored, so you can come back to it, and you get
-        written to once: when assessments that someone other than you has checked are open.</p>
+        written to once: when there is a version where someone other than you checks the evidence.</p>
         <form id="capture" class="capture-form">
           <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
           <button class="btn btn-primary" type="submit">Save my profile</button>
@@ -466,8 +493,8 @@ function renderFooterBlock (r) {
         <h3>Take this with you</h3>
         <p class="sub">Your answers stay inside this browser tab and go nowhere else — no account, no
         database, no mailing list behind this page. Close the tab and the profile is gone. Download the
-        chart if you want to keep it; when assessments that someone other than you has checked are open,
-        this page will say so.</p>
+        chart if you want to keep it. When there is a version where someone other than you checks the
+        evidence, this page will say so.</p>
       `}
       <div class="secondary-actions">
         <button class="btn btn-ghost" data-action="download">Download the chart</button>
